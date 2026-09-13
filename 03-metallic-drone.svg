@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+<rect width="100%" height="100%" fill="white"/>
+<defs><marker id="audio" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#087f83"/></marker><marker id="cv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8256b3"/></marker></defs>
+<text x="60" y="62" font-family="DejaVu Sans, sans-serif" font-size="43" font-weight="700" text-anchor="start" fill="#183139">03 / Slowly shifting metallic drone</text>
+<text x="60" y="104" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="400" text-anchor="start" fill="#526b73">A sine oscillator modulates a second oscillator at audio rate; a slow LFO adds drift.</text>
+<text x="60" y="144" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#526b73">Modules: 2 VCOs (carrier needs linear FM) • low-pass VCF • VCA with bias • LFO • 2 attenuators • output</text>
+<polyline points="60,186 150,186" fill="none" stroke="#087f83" stroke-width="4" stroke-linejoin="round" marker-end="url(#audio)"/>
+<text x="172" y="194" font-family="DejaVu Sans, sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#087f83">AUDIO / sound path</text>
+<polyline points="490,186 580,186" fill="none" stroke="#8256b3" stroke-width="4" stroke-linejoin="round" stroke-dasharray="11 8" marker-end="url(#cv)"/>
+<text x="603" y="194" font-family="DejaVu Sans, sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#8256b3">CV / modulation</text>
+<text x="1010" y="194" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#526b73">Arrows point from output to input.</text>
+<rect x="60" y="225" width="210" height="120" rx="12" fill="#faf7fd" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="260" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">LFO</text>
+<text x="165.0" y="289" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">sine • ~0.03 Hz</text>
+<circle cx="165.0" cy="345" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="332" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#8256b3">SINE OUT</text>
+<rect x="60" y="390" width="210" height="115" rx="12" fill="#faf7fd" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="435" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">DRIFT DEPTH</text>
+<text x="165.0" y="464" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">very small</text>
+<circle cx="165.0" cy="390" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="407" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#8256b3">IN</text>
+<circle cx="165.0" cy="505" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="492" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#8256b3">OUT</text>
+<rect x="60" y="575" width="210" height="175" rx="12" fill="#f7fbfb" stroke="#087f83" stroke-width="2.5"/>
+<text x="165.0" y="620" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">VCO 2</text>
+<text x="165.0" y="649" font-family="DejaVu Sans, sans-serif" font-size="17" font-weight="400" text-anchor="middle" fill="#526b73">modulator • ~156 Hz</text>
+<circle cx="165.0" cy="575" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="165.0" y="592" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#8256b3">PITCH CV</text>
+<circle cx="270" cy="688.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="257" y="694.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="end" fill="#087f83">SINE OUT</text>
+<rect x="405" y="575" width="210" height="175" rx="12" fill="#faf7fd" stroke="#8256b3" stroke-width="2.5"/>
+<text x="510.0" y="610" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">FM DEPTH</text>
+<text x="510.0" y="639" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">start at zero</text>
+<circle cx="405" cy="688.75" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="418" y="694.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#8256b3">IN</text>
+<circle cx="615" cy="688.75" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="602" y="694.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="end" fill="#8256b3">OUT</text>
+<rect x="405" y="335" width="210" height="175" rx="12" fill="#f7fbfb" stroke="#087f83" stroke-width="2.5"/>
+<text x="510.0" y="370" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">VCO 1</text>
+<text x="510.0" y="399" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">carrier • ~110 Hz</text>
+<circle cx="510.0" cy="510" r="6" fill="white" stroke="#8256b3" stroke-width="2.5"/>
+<text x="510.0" y="497" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#8256b3">LINEAR FM IN</text>
+<circle cx="615" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="602" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="end" fill="#087f83">SINE OUT</text>
+<rect x="765" y="335" width="210" height="175" rx="12" fill="#f7fbfb" stroke="#087f83" stroke-width="2.5"/>
+<text x="870.0" y="370" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">LOW-PASS</text>
+<text x="870.0" y="399" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">start fairly open</text>
+<circle cx="765" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="778" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#087f83">IN</text>
+<circle cx="975" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="962" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="end" fill="#087f83">LP OUT</text>
+<rect x="1100" y="335" width="195" height="175" rx="12" fill="#f7fbfb" stroke="#087f83" stroke-width="2.5"/>
+<text x="1197.5" y="370" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">VCA</text>
+<text x="1197.5" y="399" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">bias / gain open</text>
+<circle cx="1100" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="1113" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#087f83">IN</text>
+<circle cx="1295" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="1282" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="end" fill="#087f83">OUT</text>
+<rect x="1395" y="335" width="150" height="175" rx="12" fill="#f7fbfb" stroke="#087f83" stroke-width="2.5"/>
+<text x="1470.0" y="370" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#183139">OUTPUT</text>
+<text x="1470.0" y="399" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="middle" fill="#526b73">low level</text>
+<circle cx="1395" cy="448.75" r="6" fill="white" stroke="#087f83" stroke-width="2.5"/>
+<text x="1408" y="454.75" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#087f83">AUDIO IN</text>
+<polyline points="165.0,345 165.0,390" fill="none" stroke="#8256b3" stroke-width="4" stroke-linejoin="round" stroke-dasharray="11 8" marker-end="url(#cv)"/>
+<polyline points="165.0,505 165.0,575" fill="none" stroke="#8256b3" stroke-width="4" stroke-linejoin="round" stroke-dasharray="11 8" marker-end="url(#cv)"/>
+<polyline points="270,688.75 405,688.75" fill="none" stroke="#8256b3" stroke-width="4" stroke-linejoin="round" stroke-dasharray="11 8" marker-end="url(#cv)"/>
+<polyline points="615,688.75 665,688.75 665,545 510,545 510.0,510" fill="none" stroke="#8256b3" stroke-width="4" stroke-linejoin="round" stroke-dasharray="11 8" marker-end="url(#cv)"/>
+<polyline points="615,448.75 765,448.75" fill="none" stroke="#087f83" stroke-width="4" stroke-linejoin="round" marker-end="url(#audio)"/>
+<polyline points="975,448.75 1100,448.75" fill="none" stroke="#087f83" stroke-width="4" stroke-linejoin="round" marker-end="url(#audio)"/>
+<polyline points="1295,448.75 1395,448.75" fill="none" stroke="#087f83" stroke-width="4" stroke-linejoin="round" marker-end="url(#audio)"/>
+<text x="770" y="639" font-family="DejaVu Sans, sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#8256b3">The FM cable carries audio-rate modulation.</text>
+<text x="770" y="678" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#526b73">Raise FM depth slowly to bring out sidebands.</text>
+<text x="770" y="720" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#526b73">Use the LINEAR FM jack on the carrier.</text>
+<text x="60" y="827" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" text-anchor="start" fill="#087f83">KNOBS TO PLAY</text>
+<rect x="60" y="851" width="358" height="134" rx="10" fill="#f5f8f8"/>
+<circle cx="104" cy="894" r="23" fill="white" stroke="#183139" stroke-width="2.5"/>
+<path d="M104,894 L115,878" stroke="#183139" stroke-width="3"/>
+<text x="142" y="889" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="700" text-anchor="start" fill="#183139">FM DEPTH</text>
+<text x="142" y="920" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#526b73">main timbre control</text>
+<text x="82" y="961" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#526b73">Pure tone → richer / metallic.</text>
+<rect x="442" y="851" width="358" height="134" rx="10" fill="#f5f8f8"/>
+<circle cx="486" cy="894" r="23" fill="white" stroke="#183139" stroke-width="2.5"/>
+<path d="M486,894 L497,878" stroke="#183139" stroke-width="3"/>
+<text x="524" y="889" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="700" text-anchor="start" fill="#183139">VCO 2 PITCH</text>
+<text x="524" y="920" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#526b73">change the frequency ratio</text>
+<text x="464" y="961" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#526b73">Move away from simple octaves.</text>
+<rect x="824" y="851" width="358" height="134" rx="10" fill="#f5f8f8"/>
+<circle cx="868" cy="894" r="23" fill="white" stroke="#183139" stroke-width="2.5"/>
+<path d="M868,894 L879,878" stroke="#183139" stroke-width="3"/>
+<text x="906" y="889" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="700" text-anchor="start" fill="#183139">FILTER CUTOFF</text>
+<text x="906" y="920" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#526b73">soften the edges</text>
+<text x="846" y="961" font-family="DejaVu Sans, sans-serif" font-size="17" font-weight="400" text-anchor="start" fill="#526b73">Lower it as the sound gets brighter.</text>
+<rect x="1206" y="851" width="358" height="134" rx="10" fill="#f5f8f8"/>
+<circle cx="1250" cy="894" r="23" fill="white" stroke="#183139" stroke-width="2.5"/>
+<path d="M1250,894 L1261,878" stroke="#183139" stroke-width="3"/>
+<text x="1288" y="889" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="700" text-anchor="start" fill="#183139">DRIFT DEPTH</text>
+<text x="1288" y="920" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#526b73">stable ↔ slowly moving</text>
+<text x="1228" y="961" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#526b73">Use only slight pitch movement.</text>
+<text x="60" y="1024" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#183139">START: Sine waves; VCO 1 near 110 Hz, VCO 2 near 156 Hz. Start with FM and drift at zero.</text>
+<text x="60" y="1062" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#526b73">These are starting points, not tuning requirements. Linear FM depth and pitch stability depend on the oscillator.</text>
+<text x="60" y="1100" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#526b73">Generic patch recipe • jack names and knob ranges vary by module • 2026-09-13 • see PATCH-GUIDE.md</text>
+</svg>

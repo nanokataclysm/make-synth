@@ -1,0 +1,121 @@
+name: Build VST3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vst3-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+jobs:
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Development libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libfreetype-dev libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libxi-dev libgl1-mesa-dev xvfb
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+      - name: Audio and processor tests
+        run: xvfb-run -a ctest --test-dir build --output-on-failure
+      - name: Validate VST3 in a host
+        run: |
+          python3 Tools/fetch_pluginval.py build/pluginval
+          xvfb-run -a build/pluginval/pluginval --strictness-level 5 --validate "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+      - name: Package
+        run: python3 Tools/package.py --platform linux-x86_64 --output dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: MakeSynth-linux-x86_64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS universal / Apple Silicon tests
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build both architectures
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build --config Release
+      - name: Audio and processor tests
+        run: |
+          test "$(uname -m)" = arm64
+          ctest --test-dir build --output-on-failure
+      - name: Verify architectures and ad-hoc sign
+        run: |
+          lipo -verify_arch arm64 x86_64 "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3/Contents/MacOS/Make Synth"
+          codesign --force --sign - "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+          codesign --verify --deep --strict "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+      - name: Validate VST3 on Apple Silicon
+        run: |
+          python3 Tools/fetch_pluginval.py build/pluginval
+          arch -arm64 build/pluginval/pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+      - name: Package
+        run: |
+          python3 Tools/package.py --platform macos-universal --output dist
+          mkdir ci-tests
+          cp build/MakeSynthDspTests ci-tests/
+          cp build/MakeSynthRender_artefacts/Release/MakeSynthRender ci-tests/
+          tar -czf mac-test-tools.tar.gz -C ci-tests .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: MakeSynth-macos-universal
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mac-test-tools
+          path: mac-test-tools.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+
+  macos-intel:
+    name: macOS Intel tests
+    needs: macos
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: MakeSynth-macos-universal
+          path: dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mac-test-tools
+      - name: Test the same binaries natively on Intel
+        run: |
+          test "$(uname -m)" = x86_64
+          mkdir ci-tests
+          tar -xzf mac-test-tools.tar.gz -C ci-tests
+          ci-tests/MakeSynthDspTests
+          ci-tests/MakeSynthRender --test
+          ditto -x -k dist/MakeSynth-0.1.0-macos-universal.zip dist/unpacked
+          codesign --verify --deep --strict "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.vst3"
+          python3 Tools/fetch_pluginval.py build/pluginval
+          arch -x86_64 build/pluginval/pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.vst3"

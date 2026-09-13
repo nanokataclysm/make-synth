@@ -1,0 +1,184 @@
+[
+  {
+    "name": "01-detuned-drone",
+    "ports": [
+      "vco1.out",
+      "vco2.out",
+      "mix.in1",
+      "mix.in2",
+      "mix.out",
+      "vcf.in",
+      "vcf.out",
+      "vcf.cv",
+      "vca.in",
+      "vca.out",
+      "output.in",
+      "lfo.out",
+      "depth.in",
+      "depth.out"
+    ],
+    "cables": [
+      {
+        "from": "vco1.out",
+        "to": "mix.in1",
+        "role": "audio"
+      },
+      {
+        "from": "vco2.out",
+        "to": "mix.in2",
+        "role": "audio"
+      },
+      {
+        "from": "mix.out",
+        "to": "vcf.in",
+        "role": "audio"
+      },
+      {
+        "from": "vcf.out",
+        "to": "vca.in",
+        "role": "audio"
+      },
+      {
+        "from": "vca.out",
+        "to": "output.in",
+        "role": "audio"
+      },
+      {
+        "from": "lfo.out",
+        "to": "depth.in",
+        "role": "cv"
+      },
+      {
+        "from": "depth.out",
+        "to": "vcf.cv",
+        "role": "cv"
+      }
+    ]
+  },
+  {
+    "name": "02-breathing-noise",
+    "ports": [
+      "noise.out",
+      "vcf.in",
+      "vcf.out",
+      "vcf.cv",
+      "vca.in",
+      "vca.out",
+      "vca.cv",
+      "fx.in",
+      "fx.out",
+      "output.in",
+      "lfo.out",
+      "filter_depth.in",
+      "filter_depth.out",
+      "amp_depth.in",
+      "amp_depth.out",
+      "mult.in",
+      "mult.out1",
+      "mult.out2"
+    ],
+    "cables": [
+      {
+        "from": "noise.out",
+        "to": "vcf.in",
+        "role": "audio"
+      },
+      {
+        "from": "vcf.out",
+        "to": "vca.in",
+        "role": "audio"
+      },
+      {
+        "from": "vca.out",
+        "to": "fx.in",
+        "role": "audio"
+      },
+      {
+        "from": "fx.out",
+        "to": "output.in",
+        "role": "audio"
+      },
+      {
+        "from": "lfo.out",
+        "to": "mult.in",
+        "role": "cv"
+      },
+      {
+        "from": "mult.out1",
+        "to": "filter_depth.in",
+        "role": "cv"
+      },
+      {
+        "from": "mult.out2",
+        "to": "amp_depth.in",
+        "role": "cv"
+      },
+      {
+        "from": "filter_depth.out",
+        "to": "vcf.cv",
+        "role": "cv"
+      },
+      {
+        "from": "amp_depth.out",
+        "to": "vca.cv",
+        "role": "cv"
+      }
+    ]
+  },
+  {
+    "name": "03-metallic-drone",
+    "ports": [
+      "lfo.out",
+      "drift.in",
+      "drift.out",
+      "mod.cv",
+      "mod.out",
+      "fm_depth.in",
+      "fm_depth.out",
+      "carrier.fm",
+      "carrier.out",
+      "vcf.in",
+      "vcf.out",
+      "vca.in",
+      "vca.out",
+      "output.in"
+    ],
+    "cables": [
+      {
+        "from": "lfo.out",
+        "to": "drift.in",
+        "role": "cv"
+      },
+      {
+        "from": "drift.out",
+        "to": "mod.cv",
+        "role": "cv"
+      },
+      {
+        "from": "mod.out",
+        "to": "fm_depth.in",
+        "role": "cv"
+      },
+      {
+        "from": "fm_depth.out",
+        "to": "carrier.fm",
+        "role": "cv"
+      },
+      {
+        "from": "carrier.out",
+        "to": "vcf.in",
+        "role": "audio"
+      },
+      {
+        "from": "vcf.out",
+        "to": "vca.in",
+        "role": "audio"
+      },
+      {
+        "from": "vca.out",
+        "to": "output.in",
+        "role": "audio"
+      }
+    ]
+  }
+]
