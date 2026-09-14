@@ -1,0 +1,402 @@
+:root {
+    --bg-main: #121316;
+    --bg-panel: #1b1d22;
+    --bg-badge: #242730;
+    --border-line: #2c2f38;
+    --accent-green: #5da38b;
+    --accent-glow: rgba(93, 163, 139, 0.35);
+    --accent-orange: #d4a373;
+    --accent-red: #c9524e;
+    --text-primary: #e6e8ee;
+    --text-muted: #8a8e9b;
+    --font-mono: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    touch-action: manipulation;
+}
+
+.synth-container {
+    width: 100%;
+    max-width: 960px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-line);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header */
+.synth-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid var(--border-line);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg at 50% 50%, var(--accent-green) 0deg, var(--accent-orange) 180deg, var(--accent-green) 360deg);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.mode-selector {
+    display: flex;
+    background: var(--bg-main);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border-line);
+    gap: 4px;
+}
+
+.mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+    color: var(--text-primary);
+}
+
+.mode-btn.active {
+    background: var(--accent-green);
+    color: #121316;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-drone {
+    background: var(--bg-badge);
+    border: 1px solid var(--border-line);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-drone .led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #444;
+    transition: all 0.2s ease;
+}
+
+.btn-drone.active {
+    background: #19382b;
+    border-color: var(--accent-green);
+    color: #fff;
+}
+
+.btn-drone.active .led {
+    background: #3ee099;
+    box-shadow: 0 0 10px #3ee099;
+}
+
+.btn-stop {
+    background: var(--bg-badge);
+    border: 1px solid var(--border-line);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-stop:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+/* Oscilloscope */
+.scope-panel {
+    width: 100%;
+    height: 90px;
+    background: #0d0e11;
+    border-bottom: 1px solid var(--border-line);
+    position: relative;
+}
+
+#scopeCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Controls Grid */
+.controls-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 24px;
+    padding: 28px 24px;
+    align-items: start;
+    justify-items: center;
+}
+
+/* Rotary Knob Component */
+.knob-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 110px;
+}
+
+.knob-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.knob-dial {
+    width: 72px;
+    height: 72px;
+    position: relative;
+    cursor: ns-resize;
+    touch-action: none;
+}
+
+.knob-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(0deg);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+}
+
+.knob-track {
+    fill: none;
+    stroke: #252830;
+    stroke-width: 6;
+    stroke-linecap: round;
+}
+
+.knob-value-arc {
+    fill: none;
+    stroke: var(--accent-green);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke 0.2s ease;
+}
+
+.knob-widget:hover .knob-value-arc,
+.knob-widget.dragging .knob-value-arc {
+    stroke: #77cbb0;
+    filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.knob-body {
+    fill: #1a1c22;
+    stroke: #2d303a;
+    stroke-width: 1.5;
+    transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.knob-widget:hover .knob-body,
+.knob-widget.dragging .knob-body {
+    fill: #242730;
+    stroke: var(--accent-green);
+}
+
+.knob-pointer {
+    stroke: var(--accent-green);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.knob-badge {
+    margin-top: 10px;
+    background: var(--bg-badge);
+    border: 1px solid var(--border-line);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    text-align: center;
+    width: 86px;
+    cursor: text;
+    transition: border-color 0.2s ease;
+}
+
+.knob-badge:focus {
+    outline: none;
+    border-color: var(--accent-green);
+    background: #16181e;
+}
+
+/* Virtual Keyboard */
+.keyboard-section {
+    background: rgba(0, 0, 0, 0.35);
+    border-top: 1px solid var(--border-line);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.keyboard-container {
+    display: flex;
+    position: relative;
+    height: 110px;
+    max-width: 700px;
+    width: 100%;
+    justify-content: center;
+    user-select: none;
+}
+
+.white-key {
+    flex: 1;
+    background: #d8dade;
+    border: 1px solid #1a1a1a;
+    border-radius: 0 0 5px 5px;
+    height: 100%;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+    box-shadow: inset 0 -4px 6px rgba(0,0,0,0.2);
+}
+
+.white-key.active, .white-key:active {
+    background: #5da38b !important;
+    box-shadow: inset 0 -2px 8px rgba(0,0,0,0.5);
+}
+
+.black-key {
+    width: 6%;
+    height: 60%;
+    background: #18191c;
+    border: 1px solid #000;
+    border-radius: 0 0 4px 4px;
+    position: absolute;
+    z-index: 2;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.6);
+}
+
+.black-key.active, .black-key:active {
+    background: #3ee099 !important;
+    box-shadow: 0 0 10px #3ee099;
+}
+
+/* Footer / Status */
+.synth-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    background: #0d0e11;
+    border-top: 1px solid var(--border-line);
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.midi-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #555;
+}
+
+.status-dot.connected {
+    background: #3ee099;
+    box-shadow: 0 0 6px #3ee099;
+}
+
+@media (max-width: 680px) {
+    .controls-panel {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+    .knob-widget {
+        width: 85px;
+    }
+    .knob-dial {
+        width: 56px;
+        height: 56px;
+    }
+    .knob-badge {
+        width: 76px;
+        font-size: 10px;
+    }
+    .synth-header {
+        padding: 12px 16px;
+    }
+    .brand-title {
+        font-size: 15px;
+    }
+}

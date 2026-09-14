@@ -1,4 +1,4 @@
-name: Build VST3
+name: Build VST3, AU, CLAP, and Web
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: vst3-${{ github.ref }}
+  group: synth-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -47,6 +47,34 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+      - name: Audio and processor tests
+        run: ctest --test-dir build --output-on-failure -C Release
+      - name: Validate VST3 in a host
+        shell: bash
+        run: |
+          python3 Tools/fetch_pluginval.py build/pluginval
+          build/pluginval/pluginval.exe --strictness-level 5 --validate "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+      - name: Package
+        run: python Tools/package.py --platform windows-x86_64 --output dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: MakeSynth-windows-x86_64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
   macos:
     name: macOS universal / Apple Silicon tests
     runs-on: macos-15
@@ -68,6 +96,13 @@ jobs:
           lipo "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3/Contents/MacOS/Make Synth" -verify_arch arm64 x86_64
           codesign --force --sign - "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
           codesign --verify --deep --strict "build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3"
+          if [ -d "build/MakeSynth_artefacts/Release/AU/Make Synth.component" ]; then
+            codesign --force --sign - "build/MakeSynth_artefacts/Release/AU/Make Synth.component"
+            codesign --verify --deep --strict "build/MakeSynth_artefacts/Release/AU/Make Synth.component"
+          fi
+          if [ -e "build/MakeSynth_artefacts/Release/CLAP/Make Synth.clap" ]; then
+            codesign --force --sign - "build/MakeSynth_artefacts/Release/CLAP/Make Synth.clap"
+          fi
       - name: Validate VST3 on Apple Silicon
         run: |
           python3 Tools/fetch_pluginval.py build/pluginval
@@ -117,5 +152,35 @@ jobs:
           ci-tests/MakeSynthRender --test
           ditto -x -k dist/MakeSynth-0.1.0-macos-universal.zip dist/unpacked
           codesign --verify --deep --strict "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.vst3"
+          if [ -d "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.component" ]; then
+            codesign --verify --deep --strict "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.component"
+          fi
           python3 Tools/fetch_pluginval.py build/pluginval
           arch -x86_64 build/pluginval/pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate "dist/unpacked/MakeSynth-0.1.0-macos-universal/Make Synth.vst3"
+
+  web:
+    name: Web Audio & Web MIDI checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test Web DSP Engine
+        run: |
+          node -e '
+            const fs = require("fs");
+            eval(fs.readFileSync("./web/synth-engine.js", "utf8"));
+            const core = new globalThis.MakeSynthCore(48000);
+            core.params.drone = true;
+            for (let i = 0; i < 4800; ++i) {
+              const [l, r] = core.processSample();
+              if (!isFinite(l) || !isFinite(r)) process.exit(1);
+            }
+          '
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: MakeSynth-web
+          path: web/*
+          if-no-files-found: error
+          retention-days: 30

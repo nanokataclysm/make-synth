@@ -4,7 +4,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(MAKE_SYNTH_BUILD_PLUGIN "Build the VST3 and offline renderer" ON)
+option(MAKE_SYNTH_BUILD_PLUGIN "Build the plugin and offline renderer" ON)
+option(MAKE_SYNTH_ENABLE_CLAP "Build CLAP plugin format" ON)
+option(MAKE_SYNTH_BUILD_STANDALONE "Build standalone application" OFF)
 include(CTest)
 if(BUILD_TESTING)
     add_executable(MakeSynthDspTests Tests/DspTests.cpp)
@@ -15,12 +17,29 @@ if(NOT MAKE_SYNTH_BUILD_PLUGIN)
     return()
 endif()
 
+if(MAKE_SYNTH_ENABLE_CLAP)
+    include(FetchContent)
+    FetchContent_Declare(clap-juce-extensions
+        GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
+        GIT_TAG main
+        GIT_SUBMODULES_RECURSE TRUE)
+    FetchContent_MakeAvailable(clap-juce-extensions)
+endif()
+
 include(FetchContent)
 FetchContent_Declare(JUCE
     URL https://codeload.github.com/juce-framework/JUCE/tar.gz/72782788ce18c2d4d760b28e0921d6ffc6431102
     URL_HASH SHA256=28ec8ae0626a4d1c6ca8c32ad13f95868b147779d4f3df4a7868f333a38e0551
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(JUCE)
+
+set(MAKE_SYNTH_FORMATS VST3)
+if(APPLE)
+    list(APPEND MAKE_SYNTH_FORMATS AU)
+endif()
+if(MAKE_SYNTH_BUILD_STANDALONE)
+    list(APPEND MAKE_SYNTH_FORMATS Standalone)
+endif()
 
 juce_add_plugin(MakeSynth
     COMPANY_NAME "Make Synth"
@@ -37,7 +56,13 @@ juce_add_plugin(MakeSynth
     NEEDS_WEB_BROWSER FALSE
     NEEDS_CURL FALSE
     VST3_CATEGORIES Instrument Synth
-    FORMATS VST3)
+    FORMATS ${MAKE_SYNTH_FORMATS})
+
+if(MAKE_SYNTH_ENABLE_CLAP AND COMMAND clap_juce_extensions_plugin)
+    clap_juce_extensions_plugin(TARGET MakeSynth
+        CLAP_ID "org.makesynth.instrument"
+        CLAP_FEATURES "instrument" "synthesizer")
+endif()
 target_sources(MakeSynth PRIVATE Source/PluginProcessor.cpp Source/PluginEditor.cpp)
 target_include_directories(MakeSynth PUBLIC Source)
 target_compile_definitions(MakeSynth PUBLIC

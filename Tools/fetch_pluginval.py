@@ -10,6 +10,7 @@ import zipfile
 ASSETS = {
     "Linux": ("Linux", "c01c49d8063965c4c2dea8324468336768f5c9139e0b1caebde14c2400b55352", "pluginval"),
     "Darwin": ("macOS", "3c4c533bda0c5059eea3ddaea752d757ee2025041f0f47e6bcb0e87f6082b29f", "pluginval.app/Contents/MacOS/pluginval"),
+    "Windows": ("Windows", "c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab", "pluginval.exe"),
 }
 
 def main():

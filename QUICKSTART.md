@@ -1,41 +1,77 @@
 # Make Synth 0.1.0
 
+Cross-platform drone and noise synthesizer available as **VST3**, **AU**, **CLAP**, and interactive **Web Audio / Web MIDI**.
+
+---
+
 ## Linux
 
-Extract the zip. Copy the entire `Make Synth.vst3` directory into `~/.vst3/`.
-Keep its `Contents/` structure intact. Restart your DAW or rescan VST3 plugins,
-then add **Make Synth** to a stereo instrument track. If replacing an older
-version, move the old bundle out of the plugin directory first.
+Extract the release zip.
 
-## macOS
+- **VST3**: Copy `Make Synth.vst3` into `~/.vst3/`.
+- **CLAP**: Copy `Make Synth.clap` into `~/.clap/`.
 
-Extract the zip in Finder. Copy the whole `Make Synth.vst3` bundle into
-`~/Library/Audio/Plug-Ins/VST3/` (create this directory if needed). In Finder,
-Go > Go to Folder accepts that path. Restart your VST3-compatible DAW and rescan.
-The same bundle supports Apple Silicon and Intel Macs.
+Restart your DAW or rescan plugins (Bitwig, REAPER, Ardour, Renoise, etc.), then insert **Make Synth** on an instrument track.
 
-This private development build is ad-hoc signed, not Apple notarized. macOS may
-block a browser-downloaded copy. After checking that it is your own build from
-the private repository, you can remove quarantine from this specific bundle:
+---
+
+## macOS (Apple Silicon & Intel Universal)
+
+Extract the zip in Finder.
+
+- **VST3**: Copy `Make Synth.vst3` to `~/Library/Audio/Plug-Ins/VST3/` (for Ableton Live, FL Studio, Bitwig, REAPER, Cubase).
+- **AU (Audio Unit)**: Copy `Make Synth.component` to `~/Library/Audio/Plug-Ins/Components/` (for Logic Pro, GarageBand).
+- **CLAP**: Copy `Make Synth.clap` to `~/Library/Audio/Plug-Ins/CLAP/` (for Bitwig, REAPER).
+
+If macOS displays a quarantine prompt for downloaded builds, strip the quarantine flag from the bundles:
 
 ```sh
 xattr -dr com.apple.quarantine "$HOME/Library/Audio/Plug-Ins/VST3/Make Synth.vst3"
+xattr -dr com.apple.quarantine "$HOME/Library/Audio/Plug-Ins/Components/Make Synth.component"
 ```
 
-This changes only that plugin's download quarantine attribute. No system-wide
-Gatekeeper changes are needed. Logic Pro requires Audio Units and cannot load
-this VST3; use a VST3 host such as REAPER, Ableton Live, Cubase, or Bitwig.
+Restart your DAW and rescan plugins.
 
-## First sound
+---
 
-- The plugin starts silent. Press **DRONE**, or send a MIDI note.
-- Use the top menu to choose one of the three synths.
-- **Filter** changes cutoff/colour; **Motion Rate** sets how slowly it changes.
-- Try **Detune** around 4-10 cents for a beating drone, **Breathing** near 0.8
-  for noise swells, or **FM Depth** around 1-2 for metallic tones.
-- **Space** adds stereo reverb. **Output** controls the final level.
-- Switch Drone off for a gradual release. **STOP** cuts notes and the reverb.
+## Windows (x64)
 
-The noise patch is naturally quieter than the oscillators; increase Output to
-taste. Knob positions, mode, and Drone state are saved in your DAW session.
-When Drone is saved on, reopening the session resumes continuous sound.
+Extract the release zip in File Explorer.
+
+- **VST3**: Copy `Make Synth.vst3` into `C:\Program Files\Common Files\VST3\`.
+- **CLAP**: Copy `Make Synth.clap` into `C:\Program Files\Common Files\CLAP\`.
+
+Rescan plugins in your DAW (FL Studio, Ableton Live, Cubase, Studio One, REAPER, Bitwig).
+
+---
+
+## Web & Mobile (iOS / Android / Desktop)
+
+Make Synth runs directly inside modern web browsers with zero installation required:
+
+- **Desktop & Laptops**: Open `web/index.html` in Chrome, Firefox, Safari, or Edge.
+- **iPhone / iPad (iOS)**: Open in Mobile Safari. Full touch-screen knob gestures and an on-screen keyboard let you play notes or drone immediately.
+- **Android**: Open in Chrome. Touch gestures and USB/Bluetooth Web MIDI controllers are fully supported.
+- **Local Testing**:
+  ```sh
+  cd /home/nanokat/dev/make-synth/web
+  python3 -m http.server 8000
+  ```
+  Then navigate to `http://localhost:8000` on any device on your local network.
+
+---
+
+## First Sound & MIDI Controller Controls
+
+- The plugin starts silent. Click **DRONE** for continuous sound, or play MIDI notes / keys.
+- Select modes: **Detuned Drone**, **Breathing Noise**, or **Metallic Drone**.
+- **Hardware MIDI Mapping**:
+  - **CC 1 (Mod Wheel) / CC 11 (Expression)**: Primary expressive motion / breath / FM depth.
+  - **CC 74**: Filter cutoff / brightness.
+  - **CC 71**: Filter resonance / timbre.
+  - **CC 76 / 14**: Modulation rate.
+  - **CC 7**: Master volume output.
+  - **CC 91**: Reverb space.
+  - **CC 82**: Mode switch (Detuned / Breathing / Metallic).
+  - **CC 65 / 81**: Toggle drone latch.
+  - **CC 64**: Sustain pedal latch.

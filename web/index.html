@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#121316">
+    <title>Make Synth - Three Drone Synthesizer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="synth-container">
+        <!-- Top Toolbar -->
+        <header class="synth-header">
+            <div class="brand">
+                <div class="brand-icon"></div>
+                <div class="brand-title">Make Synth</div>
+            </div>
+
+            <nav class="mode-selector" aria-label="Synthesis Mode">
+                <button class="mode-btn active" data-mode="0">Detuned Drone</button>
+                <button class="mode-btn" data-mode="1">Breathing Noise</button>
+                <button class="mode-btn" data-mode="2">Metallic Drone</button>
+            </nav>
+
+            <div class="header-actions">
+                <button id="droneBtn" class="btn-drone">
+                    <span class="led"></span>
+                    DRONE
+                </button>
+                <button id="stopBtn" class="btn-stop">STOP</button>
+            </div>
+        </header>
+
+        <!-- Real-time Oscilloscope -->
+        <section class="scope-panel">
+            <canvas id="scopeCanvas"></canvas>
+        </section>
+
+        <!-- Parameter Controls Grid -->
+        <section id="controlsGrid" class="controls-panel" aria-label="Synthesizer Controls"></section>
+
+        <!-- Interactive Virtual Keyboard for Touch/Desktop -->
+        <section class="keyboard-section">
+            <div id="keyboardContainer" class="keyboard-container"></div>
+        </section>
+
+        <!-- Footer / Device Status -->
+        <footer class="synth-footer">
+            <div class="midi-status">
+                <span id="midiDot" class="status-dot"></span>
+                <span id="midiText">MIDI: Detecting...</span>
+            </div>
+            <div class="version-tag">Make Synth 0.1.0 • WebAudio & WebMIDI</div>
+        </footer>
+    </main>
+
+    <script src="synth-engine.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

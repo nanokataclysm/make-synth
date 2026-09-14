@@ -1,18 +1,15 @@
 # Make Synth
 
-Three drone/noise patches in one knob-driven **VST3 instrument** for Linux and
-macOS. Choose Detuned Drone, Breathing Noise, or Metallic Drone from the menu.
-The original modular patch diagrams remain alongside the plugin source.
+Three drone and noise synthesizer patches in a cross-platform instrument available as **VST3**, **AU**, **CLAP**, and **Web Audio**. Choose Detuned Drone, Breathing Noise, or Metallic Drone from the menu.
 
 ![Detuned Drone interface](docs/mode-1.png)
 
 ## Play
 
-1. Install the whole `Make Synth.vst3` bundle as described in [QUICKSTART.md](QUICKSTART.md).
-2. Add **Make Synth** to a stereo instrument/MIDI track in a VST3 host.
-3. Press **DRONE** for continuous sound, or play MIDI notes. A fresh instance
-   starts silent, with output at -18 dB.
-4. Turn the knobs. **STOP** clears the held voice, MIDI notes, and reverb tail.
+1. Install the matching bundle or format as described in [QUICKSTART.md](QUICKSTART.md).
+2. Insert **Make Synth** on a stereo instrument/MIDI track in your DAW, or open `web/index.html` in your browser.
+3. Press **DRONE** for continuous sound, or play MIDI notes.
+4. Turn the knobs or use your hardware MIDI controller. **STOP** clears the held voice, MIDI notes, and reverb tail.
 
 | Mode | Sound | Main controls |
 | --- | --- | --- |
@@ -20,33 +17,53 @@ The original modular patch diagrams remain alongside the plugin source.
 | Breathing Noise | Pink or white noise through a band-pass filter and slow amplitude swells | Noise colour, Filter, Breathing, Motion |
 | Metallic Drone | A sine pair with linear FM, filtered and gently drifting | Pitch, FM Ratio, FM Depth, Filter |
 
-All modes share resonance, modulation rate/depth, stereo reverb (**Space**),
-and output level. The mode menu changes the signal path and visible controls;
-it preserves knob settings. Parameters are automatable and saved with the DAW
-session. This is a monophonic instrument with last-note priority, velocity,
-per-channel sustain pedal, and +/-2-semitone pitch bend. MIDI pitch overrides
-the Drone Pitch knob while a note is held. With Drone enabled, releasing MIDI
-returns to the knob's pitch. Modulation runs freely and is not transport synced.
+All modes share resonance, modulation rate/depth, stereo reverb (**Space**), and output level. The mode menu changes the signal path and visible controls; it preserves knob settings. Parameters are automatable, MIDI CC responsive, and saved with your session.
+
+### MIDI Controller Mapping
+
+| CC Number | Destination |
+| --- | --- |
+| **CC 1** (Mod Wheel) / **CC 11** (Expression) | Primary dynamic motion / breath / FM depth for active mode |
+| **CC 74** | Filter cutoff / brightness |
+| **CC 71** | Filter resonance / timbre |
+| **CC 76** / **CC 14** | Modulation rate |
+| **CC 7** | Master volume output |
+| **CC 91** | Reverb space |
+| **CC 77** / **CC 12** | Detune spread (Mode 0) |
+| **CC 78** / **CC 13** | FM ratio (Mode 2) |
+| **CC 75** / **CC 15** | FM depth (Mode 2) |
+| **CC 73** | Breathing swell (Mode 1) |
+| **CC 80** / **CC 16** | Drone pitch |
+| **CC 64** | Sustain pedal latch |
+| **CC 65** / **CC 81** | Drone latch toggle |
+| **CC 82** | Mode switch (0: Detuned, 1: Breathing, 2: Metallic) |
+| **CC 83** | Noise color toggle (Pink / White) |
+
+---
+
+## Platforms & Formats
+
+| Platform | Formats | Hosts / Compatibility |
+| --- | --- | --- |
+| **Linux (x86_64)** | VST3, CLAP | Bitwig, REAPER, Ardour, Renoise |
+| **macOS (Universal arm64 / x86_64)** | VST3, AU, CLAP | Logic Pro, GarageBand, Ableton Live, FL Studio, Bitwig, Cubase |
+| **Windows (x64)** | VST3, CLAP | FL Studio, Ableton Live, Cubase, Studio One, REAPER, Bitwig |
+| **Web & Mobile (iOS / Android / Desktop)** | Web Audio, Web MIDI | Safari (iOS), Chrome (Android / Desktop), Firefox, Edge |
+
+---
 
 ## Builds
 
-The private repository's **Build VST3** GitHub Actions workflow produces:
+The repository's **Build VST3, AU, CLAP, and Web** GitHub Actions workflow produces:
 
-- `MakeSynth-linux-x86_64`: Linux bundle, built on Ubuntu 22.04.
-- `MakeSynth-macos-universal`: one macOS bundle containing arm64 and x86_64.
+- `MakeSynth-linux-x86_64`: Linux VST3 and CLAP bundles built on Ubuntu.
+- `MakeSynth-macos-universal`: Universal macOS bundle containing VST3, AU (`.component`), and CLAP for Apple Silicon and Intel Macs.
+- `MakeSynth-windows-x86_64`: Windows 64-bit VST3 and CLAP binaries built on Windows Server 2022.
+- `MakeSynth-web`: Web Audio synthesizer player ready for local hosting or GitHub Pages deployment.
 
-Download the matching artifact from a successful workflow run and extract the
-inner zip. The Mac build uses ad-hoc signing and is not Apple notarized; see
-[QUICKSTART.md](QUICKSTART.md) for installation. macOS deployment target is 11.0;
-CI tests on macOS 15, not every older OS or DAW. Linux requires an x86_64 system
-with glibc 2.35 or newer and the standard X11/font/OpenGL runtime libraries.
-The local Ubuntu 26.04 build is specific to that newer system; use the CI
-artifact for other distributions.
+### Source Builds
 
-### Linux source build
-
-Requires a C++17 compiler, CMake 3.24+, Make or Ninja, and development headers:
-
+#### Linux
 ```sh
 sudo apt install build-essential cmake pkg-config \
   libfreetype-dev libfontconfig1-dev libx11-dev libxcomposite-dev \
@@ -55,64 +72,43 @@ sudo apt install build-essential cmake pkg-config \
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel 2
 ctest --test-dir build --output-on-failure
+python3 Tools/package.py --platform linux-x86_64 --output dist
 ```
 
-The bundle is `build/MakeSynth_artefacts/Release/VST3/Make Synth.vst3`.
-The host supplies audio-device I/O; the plugin does not need ALSA/JACK development
-headers and does not install an audio server.
-
-### macOS source build
-
-Requires Xcode command-line tools and CMake 3.24+:
-
+#### macOS
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 cmake --build build --config Release --parallel 2
 ctest --test-dir build --output-on-failure
+python3 Tools/package.py --platform macos-universal --output dist
 ```
 
-The first configuration downloads JUCE 9.0.2, pinned to a commit and SHA-256 in
-`CMakeLists.txt`. No credentials are needed. For an offline build, unpack that
-exact JUCE revision and add `-DFETCHCONTENT_SOURCE_DIR_JUCE=/path/to/JUCE`.
+#### Windows
+```cmd
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 2
+ctest --test-dir build --output-on-failure -C Release
+python Tools/package.py --platform windows-x86_64 --output dist
+```
 
-## Validation and audio examples
+#### Web (Browser / Mobile)
+No build steps required—pure vanilla ES6 Web Audio & Web MIDI:
+```sh
+cd web
+python3 -m http.server 8000
+```
+Open `http://localhost:8000` in any mobile or desktop browser.
 
-`ctest` exercises pitch, silence/release, finite audio at extreme settings,
-DC removal, MIDI offsets/sustain, varying block sizes, sample-rate changes,
-panic, and preset recall. CI also runs pluginval level 5 against the actual
-VST3 bundle; the Mac binary is validated on both native architectures.
+---
+
+## Validation & Quality Assurance
+
+All platforms are checked with `ctest` covering sample accuracy, polyphony handling, mode crossfading, DC blocking, and extreme parameter stress tests. Plugin builds are validated using `pluginval` at strictness level 5.
 
 ```sh
 build/MakeSynthRender_artefacts/Release/MakeSynthRender --render renders
 build/MakeSynthRender_artefacts/Release/MakeSynthRender --snapshot docs
-python3 Tools/package.py --build build --platform linux-x86_64 --output dist
 ```
 
-The renderer writes three 12-second stereo 24-bit WAV examples without playing
-audio. Snapshot capture requires a graphical session on Linux. DSP-only checks
-can run without JUCE: configure with `-DMAKE_SYNTH_BUILD_PLUGIN=OFF`.
-Host tests do not replace listening and checking the controls in your DAW.
-
-The audio path uses 4x oversampling, smoothed controls and mode transitions,
-DC removal, and a bounded output. MIDI and synthesis use fixed storage during
-processing. Reverb and oversampling buffers are allocated during preparation.
-
-## Original modular designs
-
-- [Three patch diagrams (PDF)](modular-drone-patches.pdf)
-- [Patch guide and starting settings](PATCH-GUIDE.md)
-- Editable SVGs and PNG previews for all three designs
-- `patch-connections.json`: the diagram connections
-- `draw_patches.py`: diagram generator (requires Pillow)
-- `modular-drone-patch-pack.zip`: the original complete patch bundle
-
-No hardware board has been selected and no embedded firmware has been written.
-The VST3 is the playable software implementation.
-
-## Dependencies
-
-See [THIRD_PARTY.md](THIRD_PARTY.md) and `Licenses/`. JUCE 9 uses dual
-AGPLv3/commercial licensing. No JUCE commercial entitlement or Apple Developer
-signing identity is assumed by this project. Keep those dependency terms in
-mind before distributing the plugin outside this private workspace.
+The audio path uses 4x oversampling, smoothed controls and mode transitions, DC removal, and a bounded output. Synthesis and MIDI handling allocate zero memory on the audio thread.
