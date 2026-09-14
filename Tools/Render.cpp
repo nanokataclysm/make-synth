@@ -91,6 +91,20 @@ void tests()
         require(std::abs(a.getSample(0,i)-b.getSample(0,i))<0.000002f,"MIDI timing depends on block size");
     require(rms(a,5000,2000)>0.001,"Sustain pedal failed to hold a released note");
 
+    events.clear();
+    events.addEvent(juce::MidiMessage::controllerEvent(1, 74, 100), 10);
+    events.addEvent(juce::MidiMessage::controllerEvent(1, 71, 90), 20);
+    events.addEvent(juce::MidiMessage::controllerEvent(1, 1, 80), 30);
+    render(p, 512, 512, events);
+    require(std::abs(p.state.getRawParameterValue("cutoff")->load() - p.state.getParameter("cutoff")->convertFrom0to1(100.0f / 127.0f)) < 1.0f, "MIDI CC 74 must control filter cutoff");
+    require(std::abs(p.state.getRawParameterValue("resonance")->load() - (90.0f / 127.0f)) < 0.01f, "MIDI CC 71 must control resonance");
+    require(std::abs(p.state.getRawParameterValue("motion")->load() - (80.0f / 127.0f)) < 0.01f, "MIDI CC 1 must control motion in mode 0");
+
+    {
+        std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
+        require(ed != nullptr, "Editor creation failed");
+    }
+
     setup(p);
     juce::AudioBuffer<float> zero(2,0); juce::MidiBuffer zeroMidi;
     zeroMidi.addEvent(juce::MidiMessage::noteOn(1,60,0.8f),0);

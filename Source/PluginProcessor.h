@@ -46,7 +46,9 @@ private:
     std::array<bool,16> sustain {};
     std::array<float,16> bend {};
     uint64_t noteOrder = 0;
+    void setParameterFromMidi(size_t i, float normalizedValue) noexcept;
     std::array<std::atomic<float>*,14> values {};
+    std::array<juce::RangedAudioParameter*,14> params {};
     makesynth::SynthEngine engine;
     juce::dsp::Oversampling<float> oversampling;
     juce::Reverb reverb;

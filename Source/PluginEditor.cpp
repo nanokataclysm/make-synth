@@ -8,8 +8,13 @@ const juce::Colour bg(0xff10191d),panel(0xff18272c),text(0xffe7f1ef),muted(0xff9
 SynthLook::SynthLook()
 {
     setColour(juce::Slider::textBoxTextColourId,text);
-    setColour(juce::Slider::textBoxBackgroundColourId,juce::Colours::transparentBlack);
-    setColour(juce::Slider::textBoxOutlineColourId,juce::Colours::transparentBlack);
+    setColour(juce::Slider::textBoxBackgroundColourId,panel.brighter(0.06f));
+    setColour(juce::Slider::textBoxOutlineColourId,line);
+    setColour(juce::Slider::textBoxHighlightColourId,accent.withAlpha(0.35f));
+    setColour(juce::TextEditor::textColourId,text);
+    setColour(juce::TextEditor::backgroundColourId,panel.brighter(0.12f));
+    setColour(juce::TextEditor::outlineColourId,accent);
+    setColour(juce::TextEditor::highlightColourId,accent.withAlpha(0.35f));
     setColour(juce::ComboBox::backgroundColourId,panel); setColour(juce::ComboBox::outlineColourId,line);
     setColour(juce::ComboBox::textColourId,text); setColour(juce::ComboBox::arrowColourId,muted);
     setColour(juce::PopupMenu::backgroundColourId,panel); setColour(juce::PopupMenu::textColourId,text);
@@ -19,37 +24,54 @@ SynthLook::SynthLook()
 
 void SynthLook::drawRotarySlider(juce::Graphics& g,int x,int y,int w,int h,float position,float start,float end,juce::Slider& s)
 {
-    auto r=juce::Rectangle<float>(static_cast<float>(x),static_cast<float>(y),static_cast<float>(w),static_cast<float>(h)).reduced(12);
+    auto r=juce::Rectangle<float>(static_cast<float>(x),static_cast<float>(y),static_cast<float>(w),static_cast<float>(h)).reduced(10);
     const float radius=std::min(r.getWidth(),r.getHeight())*0.5f,cx=r.getCentreX(),cy=r.getCentreY();
-    const auto active=s.isEnabled()?accent:muted.withAlpha(0.25f);
+    const bool isHovered=s.isEnabled() && s.isMouseOverOrDragging();
+    const auto active=s.isEnabled()?(isHovered?accent.brighter(0.25f):accent):muted.withAlpha(0.25f);
     juce::Path track; track.addCentredArc(cx,cy,radius,radius,0,start,end,true);
-    g.setColour(line); g.strokePath(track,juce::PathStrokeType(3.0f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+    g.setColour(isHovered?line.brighter(0.20f):line);
+    g.strokePath(track,juce::PathStrokeType(isHovered?4.0f:3.0f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
     juce::Path arc; arc.addCentredArc(cx,cy,radius,radius,0,start,start+position*(end-start),true);
-    g.setColour(active); g.strokePath(arc,juce::PathStrokeType(3.0f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
-    g.setColour(bg.brighter(0.055f)); g.fillEllipse(cx-radius+7,cy-radius+7,2*radius-14,2*radius-14);
-    g.setColour(line); g.drawEllipse(cx-radius+7,cy-radius+7,2*radius-14,2*radius-14,1);
+    g.setColour(active);
+    g.strokePath(arc,juce::PathStrokeType(isHovered?4.0f:3.0f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+    const float bodyRadius=radius-7;
+    g.setColour(isHovered?bg.brighter(0.10f):bg.brighter(0.055f));
+    g.fillEllipse(cx-bodyRadius,cy-bodyRadius,2*bodyRadius,2*bodyRadius);
+    g.setColour(isHovered?active.withAlpha(0.85f):line);
+    g.drawEllipse(cx-bodyRadius,cy-bodyRadius,2*bodyRadius,2*bodyRadius,isHovered?1.5f:1.0f);
     const auto angle=start+position*(end-start);
-    g.setColour(active); g.drawLine(cx+std::sin(angle)*radius*0.40f,cy-std::cos(angle)*radius*0.40f,
-                                  cx+std::sin(angle)*radius*0.72f,cy-std::cos(angle)*radius*0.72f,3);
+    g.setColour(active);
+    g.drawLine(cx+std::sin(angle)*radius*0.36f,cy-std::cos(angle)*radius*0.36f,
+               cx+std::sin(angle)*radius*0.74f,cy-std::cos(angle)*radius*0.74f,isHovered?3.5f:3.0f);
 }
 
 MakeSynthEditor::Knob::Knob(juce::AudioProcessorValueTreeState& state,const char* id,const char* title,const char* suffix,const char* tip)
 {
     label.setText(title,juce::dontSendNotification); label.setJustificationType(juce::Justification::centred);
     label.setFont(juce::FontOptions(13.0f,juce::Font::bold)); label.setColour(juce::Label::textColourId,text);
-    slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow,false,115,25);
+    label.setInterceptsMouseClicks(false,false);
+    slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    slider.setMouseDragSensitivity(180);
+    slider.setScrollWheelEnabled(true);
+    slider.setVelocityBasedMode(false);
+    slider.setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+    slider.setTextBoxStyle(juce::Slider::TextBoxBelow,false,115,24);
     slider.setTextValueSuffix(suffix); slider.setTooltip(tip);
     slider.setNumDecimalPlacesToDisplay(2);
     slider.setRotaryParameters(juce::MathConstants<float>::pi*1.2f,juce::MathConstants<float>::pi*2.8f,true);
     addAndMakeVisible(label); addAndMakeVisible(slider);
     attachment=std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(state,id,slider);
     const auto control=juce::String(id);
-    slider.textFromValueFunction=[control](double v)
+    const auto unitSuffix=juce::String(suffix);
+    slider.textFromValueFunction=[control,unitSuffix](double v)
     {
         const int places=control=="rate" || control=="fmRatio" ? 3 :
                          control=="frequency" || control=="cutoff" || control=="detune" || control=="output" ? 1 : 2;
-        return juce::String(v,places);
+        return juce::String(v,places) + unitSuffix;
+    };
+    slider.valueFromTextFunction=[](const juce::String& t)
+    {
+        return t.getDoubleValue();
     };
     slider.updateText();
 }

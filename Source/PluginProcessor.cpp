@@ -34,8 +34,18 @@ MakeSynthProcessor::MakeSynthProcessor()
       state(*this,nullptr,"MakeSynthState",layout()),
       oversampling(2,2,juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR,true,true)
 {
-    for (size_t i=0; i<ids.size(); ++i) values[i]=state.getRawParameterValue(ids[i]);
+    for (size_t i=0; i<ids.size(); ++i)
+    {
+        values[i]=state.getRawParameterValue(ids[i]);
+        params[i]=state.getParameter(ids[i]);
+    }
     clearNotes();
+}
+
+void MakeSynthProcessor::setParameterFromMidi(size_t i, float normalizedValue) noexcept
+{
+    if (i < params.size() && params[i] != nullptr)
+        params[i]->setValueNotifyingHost(std::clamp(normalizedValue, 0.0f, 1.0f));
 }
 
 float MakeSynthProcessor::value(size_t i, float fallback) const noexcept
@@ -115,10 +125,49 @@ void MakeSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept
         auto& n=channel[static_cast<size_t>(m.getNoteNumber())];
         n.down=false; if (!sustain[static_cast<size_t>(c)]) n.held=false;
     }
-    else if (m.isController() && m.getControllerNumber()==64)
+    else if (m.isController())
     {
-        sustain[static_cast<size_t>(c)]=m.getControllerValue()>=64;
-        if (!sustain[static_cast<size_t>(c)]) for (auto& n:channel) if (!n.down) n.held=false;
+        const int cc = m.getControllerNumber();
+        const int val = m.getControllerValue();
+        if (cc == 64)
+        {
+            sustain[static_cast<size_t>(c)] = val >= 64;
+            if (!sustain[static_cast<size_t>(c)]) for (auto& n:channel) if (!n.down) n.held=false;
+        }
+        else
+        {
+            const float v = static_cast<float>(val) / 127.0f;
+            const int currentMode = std::clamp(static_cast<int>(value(0)), 0, 2);
+            switch (cc)
+            {
+                case 1:  // Mod Wheel -> primary expressive motion/depth for active mode
+                    if (currentMode == 0) setParameterFromMidi(6, v);      // motion
+                    else if (currentMode == 1) setParameterFromMidi(10, v);// breath
+                    else setParameterFromMidi(9, v);                      // fmDepth
+                    break;
+                case 11: // Expression pedal
+                    if (currentMode == 1) setParameterFromMidi(10, v);     // breath
+                    else if (currentMode == 0) setParameterFromMidi(6, v); // motion
+                    else setParameterFromMidi(9, v);                      // fmDepth
+                    break;
+                case 74: setParameterFromMidi(3, v); break;                // Filter cutoff / brightness
+                case 71: setParameterFromMidi(4, v); break;                // Filter resonance / timbre
+                case 76: case 14: setParameterFromMidi(5, v); break;       // Modulation rate
+                case 7:  setParameterFromMidi(13, v); break;               // Master volume -> output
+                case 91: setParameterFromMidi(12, v); break;               // Reverb send -> space
+                case 77: case 12: setParameterFromMidi(7, v); break;       // Detune (Mode 0)
+                case 78: case 13: setParameterFromMidi(8, v); break;       // FM Ratio (Mode 2)
+                case 75: case 15: setParameterFromMidi(9, v); break;       // FM Depth (Mode 2)
+                case 73: setParameterFromMidi(10, v); break;               // Breathing (Mode 1)
+                case 80: case 16: setParameterFromMidi(2, v); break;       // Drone Pitch
+                case 65: case 81: setParameterFromMidi(1, val >= 64 ? 1.0f : 0.0f); break; // Drone Latch
+                case 82: // Mode switch (0, 1, 2)
+                    setParameterFromMidi(0, val < 43 ? 0.0f : (val < 86 ? 0.5f : 1.0f));
+                    break;
+                case 83: setParameterFromMidi(11, val >= 64 ? 1.0f : 0.0f); break; // Noise color (pink/white)
+                default: break;
+            }
+        }
     }
     else if (m.isAllSoundOff()) { for (auto& n:channel) n={}; sustain[static_cast<size_t>(c)]=false; }
     else if (m.isAllNotesOff()) { for (auto& n:channel) { n.down=false; if (!sustain[static_cast<size_t>(c)]) n.held=false; } }
