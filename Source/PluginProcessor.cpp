@@ -109,6 +109,7 @@ void MakeSynthProcessor::prepareToPlay(double sr,int block)
     rp.roomSize=0.78f; rp.damping=0.55f; rp.width=1.0f; rp.wetLevel=1.0f; rp.dryLevel=0.0f; rp.freezeMode=0;
     reverb.setParameters(rp);
     dry.setSize(2,maximumBlock,false,false,true);
+    patchScratch.setSize(1,maximumBlock,false,false,true);
     master.reset(sr,0.03); master.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(std::clamp(value(13,-18),-48.0f,0.0f)));
     wetMix.reset(sr,0.04); wetMix.setCurrentAndTargetValue(std::clamp(value(12),0.0f,0.65f));
     clearNotes(); outputPeak.store(0);
@@ -204,9 +205,23 @@ void MakeSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept
 void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
-    buffer.clear();
     if (buffer.getNumChannels()<2) return;
-    engine.setParameters(readParameters());
+    // Input and output buses alias the same memory, so the patch signal must be
+    // copied out before the buffer is cleared.
+    const bool patchActive = getBus(true,0) != nullptr && getBus(true,0)->isEnabled();
+    const int patchSamples = std::min(buffer.getNumSamples(), patchScratch.getNumSamples());
+    patchScratch.clear();
+    if (patchActive)
+    {
+        auto patchBus = getBusBuffer(buffer, true, 0);
+        const int channels = patchBus.getNumChannels();
+        for (int c = 0; c < channels; ++c)
+            patchScratch.addFrom(0, 0, patchBus, c, 0, patchSamples, 1.0f / static_cast<float>(channels));
+    }
+    buffer.clear();
+    auto parameters = readParameters();
+    parameters.patchConnected = patchActive;
+    engine.setParameters(parameters);
     if (panic.exchange(false)) { clearNotes(); engine.reset(); reverb.reset(); oversampling.reset(); }
     master.setTargetValue(juce::Decibels::decibelsToGain(std::clamp(value(13,-18),-48.0f,0.0f)));
     wetMix.setTargetValue(std::clamp(value(12),0.0f,0.65f));
@@ -223,6 +238,14 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
     for (int start=0;start<buffer.getNumSamples();start+=maximumBlock)
     {
         const auto count=std::min(maximumBlock,buffer.getNumSamples()-start);
+        // Seed the block with the patch signal so the existing oversampler
+        // upsamples it for us — no second filter chain, no extra latency.
+        for (int c=0;c<2;++c)
+        {
+            auto* channel=buffer.getWritePointer(c,start);
+            for (int i=0;i<count;++i)
+                channel[i] = start+i < patchSamples ? patchScratch.getSample(0,start+i) : 0.0f;
+        }
         auto host=full.getSubsetChannelBlock(0,2).getSubBlock(static_cast<size_t>(start),static_cast<size_t>(count));
         auto high=oversampling.processSamplesUp(host);
         for (size_t i=0;i<high.getNumSamples();++i)
@@ -230,7 +253,7 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
             if ((i&3u)==0)
                 while (next!=midi.cend() && (*next).samplePosition<=start+static_cast<int>(i/4))
                 { if ((*next).numBytes<=3) handleMidi((*next).getMessage()); ++next; }
-            const float x=engine.process();
+            const float x=engine.process(high.getChannelPointer(0)[i]);
             high.getChannelPointer(0)[i]=x; high.getChannelPointer(1)[i]=x;
         }
         oversampling.processSamplesDown(host);
