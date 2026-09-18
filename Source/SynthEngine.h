@@ -86,6 +86,7 @@ public:
         pinkMix = target.pink ? 1.0f : 0.0f;
         dcInput = dcOutput = 0;
         preFilterTap = postFilterTap = 0;
+        lfoTap = envelopeTap = 0;
         coefficientCounter = 0;
         for (auto& f : filters) f.reset();
     }
@@ -98,6 +99,10 @@ public:
     // Read after each process() call. Valid until the next call.
     float lastPreFilter()  const noexcept { return preFilterTap; }
     float lastPostFilter() const noexcept { return postFilterTap; }
+    // Modulation sources for the CV Out bus. The LFO runs regardless of gate,
+    // so this bus is never silent — correct for a modulation source.
+    float lastLfo()      const noexcept { return lfoTap; }
+    float lastEnvelope() const noexcept { return envelopeTap; }
     float process(const SampleInputs& in = {}) noexcept
     {
         auto smooth = [this](float& value, float to) { value += smoothing * (to - value); };
@@ -118,11 +123,13 @@ public:
                          : 0.0f;
         envelope += (gate > envelope ? attack : release) * (gate - envelope);
         if (gate == 0 && envelope < 1.0e-7f) envelope = 0;
+        envelopeTap = envelope;
         for (size_t i = 0; i < 3; ++i)
             weights[i] += smoothing * ((static_cast<int>(i) == target.mode ? 1.0f : 0.0f) - weights[i]);
 
         advance(lfoPhase, current.rate);
         const auto lfo = std::sin(lfoPhase);
+        lfoTap = static_cast<float>(lfo);
         // +/-2 octaves at full attenuverter. Inside the clamp so CV cannot
         // push the oscillator past the internal Nyquist limit.
         const double pitchMod = std::exp2(in.cvPitch * current.cvPitchAmount * 2.0f);
@@ -243,6 +250,7 @@ private:
     double dcInput = 0, dcOutput = 0, dcCoefficient = 0.999;
     float smoothing = 0.001f, attack = 0.001f, release = 0.0001f, envelope = 0;
     float preFilterTap = 0, postFilterTap = 0;
+    float lfoTap = 0, envelopeTap = 0;
     float noteFrequency = 110, velocity = 1, pinkSum = 0, pinkMix = 1;
     bool noteActive = false;
     Parameters target, current;

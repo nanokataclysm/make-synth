@@ -437,6 +437,39 @@ int main(int argc, char** argv)
                     "Fast cutoff CV was attenuated — CV is being smoothed");
         }
 
+        {
+            makesynth::SynthEngine e;
+            makesynth::Parameters p;
+            p.mode = 0; p.drone = true; p.rate = 5.0f;
+            e.setParameters(p); e.prepare(48000);
+
+            // The LFO must actually traverse its range at the configured rate.
+            float lowest = 1.0f, highest = -1.0f;
+            for (int i = 0; i < 48000; ++i)
+            {
+                e.process();
+                lowest = std::min(lowest, e.lastLfo());
+                highest = std::max(highest, e.lastLfo());
+                require(e.lastLfo() >= -1.0f && e.lastLfo() <= 1.0f, "LFO CV left its range");
+            }
+            require(highest > 0.9f && lowest < -0.9f, "LFO CV did not traverse its range");
+
+            // The envelope must track the gate: rising while held, falling once released.
+            makesynth::SynthEngine g;
+            makesynth::Parameters q;
+            q.mode = 0; q.drone = true;
+            g.setParameters(q); g.prepare(48000);
+            for (int i = 0; i < 4800; ++i) g.process();
+            const auto held = g.lastEnvelope();
+            require(held > 0.9f, "Envelope CV did not open on a held gate");
+            q.drone = false;
+            g.setParameters(q);
+            for (int i = 0; i < 48000; ++i) g.process();
+            require(g.lastEnvelope() < held * 0.1f, "Envelope CV did not fall after release");
+            require(g.lastEnvelope() >= 0.0f, "Envelope CV went negative");
+            std::cout << "CV output checks passed\n";
+        }
+
         std::cout << "DSP checks passed\n";
     }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
