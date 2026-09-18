@@ -128,9 +128,10 @@ void MakeSynthEditor::updateMode()
     const auto* patchBus=processor.getBus(true,0);
     const bool patched=patchBus!=nullptr && patchBus->isEnabled();
     if (m==selectedMode && w==selectedWave && patched==patchVisible) return;
+    const bool wasPatched=patchVisible;
     patchVisible=patched;
     patchLevel.setVisible(patched);
-    setSize(getWidth(), patched ? 820 : 690);
+    if (patched!=wasPatched) setSize(getWidth(), patched ? 820 : 690);
     selectedMode=m; selectedWave=w;
     look.accent=m==0?juce::Colour(0xff63d9cb):m==1?juce::Colour(0xff87bfe9):juce::Colour(0xffc4a3ff);
     look.setColour(juce::TextButton::buttonOnColourId,look.accent);

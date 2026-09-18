@@ -53,8 +53,19 @@ int main(int argc, char** argv)
             require(file.gcount() == static_cast<std::streamsize>(expected.size() * sizeof(float)),
                     "Golden reference file is truncated");
             const auto actual = goldenRender();
+            // The golden file was captured on Linux/GCC. macOS (arm64, FMA in its
+            // baseline ISA) and MSVC contract float expressions differently than
+            // glibc/GCC does, and Apple's libm sin/tan/tanh/exp2 differ in their
+            // last bit from glibc's — a measured probe showed 358/8192 samples
+            // differing by up to 5.96e-08 from toolchain codegen alone with exact
+            // equality. A real regression is much larger: perturbing the canary
+            // constant in SynthEngine.h's std::tanh(mixed * 0.85) to 0.86 moves
+            // samples by ~5.3e-3, five orders of magnitude above the tolerance
+            // below, so the guard keeps its full power against real drift while
+            // tolerating cross-platform codegen noise.
             for (size_t i = 0; i < expected.size(); ++i)
-                require(actual[i] == expected[i], "Engine output drifted from the golden reference");
+                require(std::abs(actual[i] - expected[i]) <= 1.0e-5f,
+                        "Engine output drifted from the golden reference");
             std::cout << "golden reference matches\n";
         }
 
@@ -136,6 +147,30 @@ int main(int argc, char** argv)
             // At level zero the patch path must contribute exactly nothing, so the run is
             // sample-for-sample the silent run.
             require(muted == energyWith(0.0f, false, 0), "patchLevel of zero must mute patched audio");
+
+            // The tap test above (tapDifference > 1.0) passes on oscillator content
+            // alone and would still pass if patchIn were removed from the tap path
+            // entirely. Confirm patched audio actually reaches the pre-filter tap by
+            // differencing accumulated pre-filter energy between a fed and a silent
+            // run, the same pattern energyWith uses above.
+            auto preFilterEnergyWith = [](bool feedSignal)
+            {
+                makesynth::SynthEngine engine;
+                makesynth::Parameters q;
+                q.mode = 0; q.drone = false; q.patchConnected = true; q.patchLevel = 1.0f;
+                q.cutoff = 3000; q.resonance = 0; q.motion = 0; q.breath = 0;
+                engine.setParameters(q); engine.prepare(48000);
+                double total = 0;
+                for (int i = 0; i < 24000; ++i)
+                {
+                    engine.process(feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f);
+                    total += engine.lastPreFilter() * engine.lastPreFilter();
+                }
+                return total;
+            };
+            const auto preFilterSilent = preFilterEnergyWith(false);
+            require(preFilterEnergyWith(true) > preFilterSilent * 1.05,
+                    "Patched audio did not reach the pre-filter tap");
 
             // Disconnected patch input must not open the gate.
             makesynth::Parameters q;
