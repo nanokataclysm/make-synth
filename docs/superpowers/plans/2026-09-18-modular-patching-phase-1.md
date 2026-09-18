@@ -328,33 +328,40 @@ Add to `Tests/DspTests.cpp`:
     makesynth::SynthEngine e;
     makesynth::Parameters p;
     p.mode = 0; p.drone = false; p.patchConnected = true; p.patchLevel = 1.0f;
-    e.setParameters(p); e.prepare(48000);
-    double energy = 0;
-    for (int i = 0; i < 24000; ++i)
-    {
-        const auto x = e.process(0.4f * std::sin(i * 0.1));
-        energy += x * x;
-    }
-    require(energy > 0.01, "Connected patch input must pass with no note held");
 
-    // patchLevel must scale the contribution.
-    auto energyAtLevel = [](float level)
+    // The gate opens for a connected patch bus, which also lets the oscillator
+    // sound. Every assertion below therefore measures the DIFFERENCE between an
+    // identical pair of runs -- one fed a signal, one fed silence -- so what is
+    // measured is the patch contribution and not the oscillator underneath it.
+    auto energyWith = [](float level, bool feedSignal, int mode)
     {
         makesynth::SynthEngine engine;
         makesynth::Parameters q;
-        q.mode = 0; q.drone = false; q.patchConnected = true; q.patchLevel = level;
+        q.mode = mode; q.drone = false; q.patchConnected = true; q.patchLevel = level;
+        q.cutoff = 3000; q.resonance = 0; q.motion = 0; q.breath = 0;
         engine.setParameters(q); engine.prepare(48000);
         double total = 0;
         for (int i = 0; i < 24000; ++i)
         {
-            const auto x = engine.process(0.4f * std::sin(i * 0.1));
+            const auto x = engine.process(feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f);
             total += x * x;
         }
         return total;
     };
-    require(energyAtLevel(1.0f) > energyAtLevel(0.25f) * 2.0,
-            "patchLevel does not scale the patched signal");
-    require(energyAtLevel(0.0f) < 1.0e-6, "patchLevel of zero must mute patched audio");
+
+    const auto silent = energyWith(1.0f, false, 0);
+    require(energyWith(1.0f, true, 0) > silent * 1.05,
+            "Connected patch input must add energy with no note held");
+
+    // patchLevel must scale the contribution monotonically.
+    const auto full = energyWith(1.0f, true, 0);
+    const auto quarter = energyWith(0.25f, true, 0);
+    const auto muted = energyWith(0.0f, true, 0);
+    require(full > quarter && quarter > muted, "patchLevel does not scale the patched signal");
+
+    // At level zero the patch path must contribute exactly nothing, so the run is
+    // sample-for-sample the silent run.
+    require(muted == energyWith(0.0f, false, 0), "patchLevel of zero must mute patched audio");
 
     // Disconnected patch input must not open the gate.
     makesynth::Parameters q;
@@ -365,25 +372,10 @@ Add to `Tests/DspTests.cpp`:
     for (int i = 0; i < 24000; ++i) closed += std::abs(quiet.process(0.4f * std::sin(i * 0.1)));
     require(closed < 1.0e-4, "Disconnected patch input must stay gated");
 
-    // Each mode must colour the patched signal differently: mode 0 and 2 are
-    // low-pass, mode 1 is band-pass with the breathing swell on top.
-    auto energyInMode = [](int mode)
-    {
-        makesynth::SynthEngine engine;
-        makesynth::Parameters q;
-        q.mode = mode; q.drone = false; q.patchConnected = true; q.patchLevel = 1.0f;
-        q.cutoff = 400; q.resonance = 0; q.motion = 0; q.breath = 0;
-        engine.setParameters(q); engine.prepare(48000);
-        double total = 0;
-        for (int i = 0; i < 4800; ++i) engine.process(0.0f);      // settle the crossfade
-        for (int i = 0; i < 24000; ++i)
-        {
-            const auto x = engine.process(0.4f * std::sin(i * 0.4));  // well above cutoff
-            total += x * x;
-        }
-        return total;
-    };
-    const auto lowPass = energyInMode(0), bandPass = energyInMode(1);
+    // Each mode must colour the patched signal differently. Differencing against
+    // the silent run removes the oscillator, which already differs per mode.
+    const auto lowPass  = energyWith(1.0f, true, 0) - energyWith(1.0f, false, 0);
+    const auto bandPass = energyWith(1.0f, true, 1) - energyWith(1.0f, false, 1);
     require(lowPass > 0 && bandPass > 0, "Patched audio vanished in a mode");
     require(std::abs(lowPass - bandPass) / std::max(lowPass, bandPass) > 0.1,
             "Modes do not colour patched audio differently");
