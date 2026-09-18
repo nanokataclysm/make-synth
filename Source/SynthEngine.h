@@ -14,6 +14,10 @@ struct Parameters
     float frequency = 110.0f, cutoff = 1200.0f, resonance = 0.15f;
     float rate = 0.05f, motion = 0.15f, detune = 6.0f;
     float fmRatio = 1.4142f, fmDepth = 0.8f, breath = 0.45f;
+    // 0 sine, 1 triangle, 2 saw, 3 square, 4 pulse. Triangle is the default so
+    // that sessions saved before the wave selector existed reload unchanged.
+    int wave = 1;
+    float width = 0.35f;
     bool pink = true;
 };
 
@@ -80,6 +84,7 @@ public:
         smooth(current.rate, target.rate); smooth(current.motion, target.motion);
         smooth(current.detune, target.detune); smooth(current.fmRatio, target.fmRatio);
         smooth(current.fmDepth, target.fmDepth); smooth(current.breath, target.breath);
+        smooth(current.width, target.width);
         const float gate = noteActive ? velocity : (target.drone ? 1.0f : 0.0f);
         envelope += (gate > envelope ? attack : release) * (gate - envelope);
         if (gate == 0 && envelope < 1.0e-7f) envelope = 0;
@@ -91,7 +96,11 @@ public:
         const double base = std::clamp(static_cast<double>(current.frequency), 10.0, rate * 0.1);
         const double second = base * std::exp2(current.detune / 1200.0);
         advance(phase1, base); advance(phase2, second);
-        const float drone = 0.5f * (triangle(phase1, base) + triangle(phase2, second));
+        const int shape = std::clamp(target.wave, 0, 4);
+        const double pulseWidth = std::clamp(static_cast<double>(current.width), 0.15, 0.85);
+        const float drone = 0.5f * waveGain[static_cast<size_t>(shape)]
+                          * (oscillator(shape, phase1, base, pulseWidth)
+                           + oscillator(shape, phase2, second, pulseWidth));
 
         const float white = random();
         const unsigned row = trailingZeroes(++pinkCounter) & 15u;
@@ -133,6 +142,35 @@ private:
         if (phase >= 2*pi) phase -= 2*pi;
         if (phase < 0) phase += 2*pi;
     }
+    // Corrects the step discontinuity of saw/square/pulse over one sample either
+    // side of the edge, which removes most of the aliasing they would otherwise
+    // fold back. Sine and triangle are alias-free by construction already.
+    static double polyBlep(double t, double dt) noexcept
+    {
+        if (dt <= 0) return 0;
+        if (t < dt) { t /= dt; return t + t - t * t - 1.0; }
+        if (t > 1.0 - dt) { t = (t - 1.0) / dt; return t * t + t + t + 1.0; }
+        return 0;
+    }
+    float oscillator(int shape, double phase, double hz, double width) const noexcept
+    {
+        if (shape == 1) return triangle(phase, hz);
+        if (shape == 0) return static_cast<float>(std::sin(phase));
+        const double dt = std::clamp(hz / rate, 0.0, 0.45);
+        double t = phase / (2 * pi);
+        t -= std::floor(t);
+        if (shape == 2)
+            return static_cast<float>(2.0 * t - 1.0 - polyBlep(t, dt));
+        // Square is a fixed half cycle; pulse follows the width control.
+        const double w = shape == 3 ? 0.5 : width;
+        // Remove the width-dependent DC here: the waveshaper downstream would
+        // otherwise clip the offset asymmetrically.
+        double value = (t < w ? 1.0 : -1.0) - (2.0 * w - 1.0);
+        value += polyBlep(t, dt);
+        double fall = t - w; fall -= std::floor(fall);
+        value -= polyBlep(fall, dt);
+        return static_cast<float>(value);
+    }
     float triangle(double phase, double hz) const noexcept
     {
         double result = 0;
@@ -157,6 +195,8 @@ private:
     float noteFrequency = 110, velocity = 1, pinkSum = 0, pinkMix = 1;
     bool noteActive = false;
     Parameters target, current;
+    // Roughly equal loudness per shape, referenced to the triangle.
+    static constexpr std::array<float,5> waveGain {0.82f, 1.0f, 1.0f, 0.58f, 0.58f};
     std::array<float,3> weights {1,0,0};
     std::array<Filter,3> filters;
     std::array<float,16> pinkRows {};

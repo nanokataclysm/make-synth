@@ -203,6 +203,11 @@ body {
     width: 110px;
 }
 
+.knob-widget.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
 .knob-label {
     font-size: 11px;
     font-weight: 700;

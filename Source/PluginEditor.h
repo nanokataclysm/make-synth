@@ -30,12 +30,12 @@ private:
     MakeSynthProcessor& processor;
     SynthLook look;
     juce::TooltipWindow tooltip {this,700};
-    juce::ComboBox mode,noise;
+    juce::ComboBox mode,noise,wave;
     juce::TextButton drone {"DRONE"},stop {"STOP"};
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment,noiseAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment,noiseAttachment,waveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> droneAttachment;
-    Knob pitch,cutoff,resonance,rate,motion,detune,fmRatio,fmDepth,breath,space,output;
-    int selectedMode=-1;
+    Knob pitch,cutoff,resonance,rate,motion,detune,fmRatio,fmDepth,breath,width,space,output;
+    int selectedMode=-1,selectedWave=-1;
     float meter=0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MakeSynthEditor)
 };

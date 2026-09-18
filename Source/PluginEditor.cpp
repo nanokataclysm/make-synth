@@ -56,7 +56,7 @@ MakeSynthEditor::Knob::Knob(juce::AudioProcessorValueTreeState& state,const char
     slider.setVelocityBasedMode(false);
     slider.setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
     slider.setTextBoxStyle(juce::Slider::TextBoxBelow,false,115,24);
-    slider.setTextValueSuffix(suffix); slider.setTooltip(tip);
+    slider.setTooltip(tip);
     slider.setNumDecimalPlacesToDisplay(2);
     slider.setRotaryParameters(juce::MathConstants<float>::pi*1.2f,juce::MathConstants<float>::pi*2.8f,true);
     addAndMakeVisible(label); addAndMakeVisible(slider);
@@ -91,19 +91,23 @@ MakeSynthEditor::MakeSynthEditor(MakeSynthProcessor& p)
       fmRatio(p.state,"fmRatio","FM RATIO"," x","Modulator frequency relative to the played pitch."),
       fmDepth(p.state,"fmDepth","FM DEPTH","","Add sidebands and metallic complexity."),
       breath(p.state,"breath","BREATHING","","Loudness movement. Zero is steady; one fades towards silence."),
+      width(p.state,"width","PULSE WIDTH","","Duty cycle of the Pulse wave. 0.50 is a square; the extremes are thin and nasal."),
       space(p.state,"space","SPACE","","Blend a stereo reverb into the sound."),
       output(p.state,"output","OUTPUT"," dB","Master output level after the reverb.")
 {
     setLookAndFeel(&look);
-    for (auto* k : {&pitch,&cutoff,&resonance,&rate,&motion,&detune,&fmRatio,&fmDepth,&breath,&space,&output}) addAndMakeVisible(k);
+    for (auto* k : {&pitch,&cutoff,&resonance,&rate,&motion,&detune,&fmRatio,&fmDepth,&breath,&width,&space,&output}) addAndMakeVisible(k);
     mode.addItemList({"01  Detuned Drone","02  Breathing Noise","03  Metallic Drone"},1);
     noise.addItemList({"Pink noise","White noise"},1);
+    wave.addItemList({"Sine","Triangle","Saw","Square","Pulse"},1);
+    wave.setTooltip("Shape of both oscillators, from the pure sine up to the buzzing saw and square.");
     mode.setTooltip("Choose one of the three synth patches.");
     drone.setClickingTogglesState(true); drone.setTooltip("Latch a continuous drone. Switch off for a gradual release.");
     stop.setTooltip("Stop held notes, the drone, and the reverb tail.");
-    for (auto* c : std::initializer_list<juce::Component*>{&mode,&noise,&drone,&stop}) addAndMakeVisible(c);
+    for (auto* c : std::initializer_list<juce::Component*>{&mode,&noise,&wave,&drone,&stop}) addAndMakeVisible(c);
     modeAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.state,"mode",mode);
     noiseAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.state,"noise",noise);
+    waveAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.state,"wave",wave);
     droneAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(p.state,"drone",drone);
     stop.onClick=[this]
     {
@@ -119,12 +123,16 @@ MakeSynthEditor::~MakeSynthEditor() { stopTimer(); setLookAndFeel(nullptr); }
 void MakeSynthEditor::updateMode()
 {
     const auto m=static_cast<int>(processor.state.getRawParameterValue("mode")->load());
-    if (m==selectedMode) return;
-    selectedMode=m;
+    const auto w=static_cast<int>(processor.state.getRawParameterValue("wave")->load());
+    if (m==selectedMode && w==selectedWave) return;
+    selectedMode=m; selectedWave=w;
     look.accent=m==0?juce::Colour(0xff63d9cb):m==1?juce::Colour(0xff87bfe9):juce::Colour(0xffc4a3ff);
     look.setColour(juce::TextButton::buttonOnColourId,look.accent);
     detune.setVisible(m==0); breath.setVisible(m==1); noise.setVisible(m==1);
     fmRatio.setVisible(m==2); fmDepth.setVisible(m==2); pitch.setEnabled(m!=1);
+    wave.setVisible(m==0); width.setVisible(m==0);
+    // Only the Pulse shape reads the duty cycle; Square is a fixed half cycle.
+    width.setEnabled(m==0 && w==4);
     resized(); repaint();
 }
 void MakeSynthEditor::timerCallback()
@@ -144,6 +152,8 @@ void MakeSynthEditor::resized()
     detune.setBounds(margin,y,cell,knobH); breath.setBounds(margin,y,cell,knobH);
     fmRatio.setBounds(margin,y,cell,knobH); fmDepth.setBounds(margin+cell,y,cell,knobH);
     noise.setBounds(margin+cell+15,y+64,cell-30,36);
+    wave.setBounds(margin+cell+15,y+64,cell-30,36);
+    width.setBounds(margin+2*cell,y,cell,knobH);
     space.setBounds(margin+3*cell,y,cell,knobH); output.setBounds(margin+4*cell,y,cell,knobH);
 }
 
@@ -154,7 +164,9 @@ void MakeSynthEditor::paint(juce::Graphics& g)
     g.setColour(muted); g.setFont(juce::FontOptions(12.0f)); g.drawText("THREE SLOW MACHINES",29,59,250,22,juce::Justification::centredLeft);
     auto r=juce::Rectangle<float>(28,105,static_cast<float>(getWidth()-56),108);
     g.setColour(panel); g.fillRoundedRectangle(r,10);
-    const juce::StringArray routes=selectedMode==0?juce::StringArray{"TWO TRIANGLES","LOW-PASS","HELD VOICE","SPACE"}:
+    static const juce::StringArray waveNames{"TWO SINES","TWO TRIANGLES","TWO SAWS","TWO SQUARES","TWO PULSES"};
+    const auto oscillators=waveNames[juce::jlimit(0,4,selectedWave)];
+    const juce::StringArray routes=selectedMode==0?juce::StringArray{oscillators,"LOW-PASS","HELD VOICE","SPACE"}:
                                   selectedMode==1?juce::StringArray{"NOISE","BAND-PASS","SLOW SWELLS","SPACE"}:
                                                   juce::StringArray{"FM PAIR","LOW-PASS","HELD VOICE","SPACE"};
     const int cw=(getWidth()-104)/4;
@@ -171,11 +183,17 @@ void MakeSynthEditor::paint(juce::Graphics& g)
                                               "Bring in FM depth, then move the ratio away from simple octaves.";
     g.drawText(caption,52,176,getWidth()-104,23,juce::Justification::centredLeft);
     const int cell=(getWidth()-56)/5,y=238+(getHeight()-315)/2+7;
-    if (selectedMode!=2)
+    if (selectedMode==1)
     {
-        const auto desc=selectedMode==0?"A few cents can make\na whole landscape.":"Pink is softer.\nWhite carries more air.";
         g.setColour(muted); g.setFont(juce::FontOptions(15.0f));
-        g.drawFittedText(desc,28+cell+(selectedMode==1?cell:0),y+102,selectedMode==1?cell:2*cell-15,65,juce::Justification::centred,3);
+        g.drawFittedText("Pink is softer.\nWhite carries more air.",28+2*cell,y+102,cell,65,juce::Justification::centred,3);
+    }
+    else if (selectedMode==0)
+    {
+        g.setColour(text); g.setFont(juce::FontOptions(13.0f,juce::Font::bold));
+        g.drawText("WAVE",28+cell,y,cell,25,juce::Justification::centred);
+        g.setColour(muted); g.setFont(juce::FontOptions(15.0f));
+        g.drawFittedText("A few cents can make\na whole landscape.",28+cell,y+112,cell,65,juce::Justification::centred,3);
     }
     g.setColour(line); g.drawHorizontalLine(getHeight()-47,28,static_cast<float>(getWidth()-28));
     g.setColour(muted); g.setFont(juce::FontOptions(12.0f));

@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <chrono>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -100,9 +101,44 @@ void tests()
     require(std::abs(p.state.getRawParameterValue("resonance")->load() - (90.0f / 127.0f)) < 0.01f, "MIDI CC 71 must control resonance");
     require(std::abs(p.state.getRawParameterValue("motion")->load() - (80.0f / 127.0f)) < 0.01f, "MIDI CC 1 must control motion in mode 0");
 
+    // Every oscillator wave must survive the full plugin path at its narrowest
+    // pulse width, which is the loudest and most discontinuous setting.
+    set(p,"mode",0); set(p,"drone",1); set(p,"width",0.15f); set(p,"output",-6);
+    for (int wave=0;wave<5;++wave)
+    {
+        set(p,"wave",static_cast<float>(wave)); setup(p);
+        const auto level=rms(render(p,48000));
+        require(level>0.0001,"An oscillator wave produces no audio");
+        std::cout << "Plugin wave " << wave << " RMS " << level << '\n';
+        p.requestPanic();
+    }
+    set(p,"drone",0); set(p,"width",0.35f); set(p,"wave",1); set(p,"output",-18);
+
+    events.clear();
+    events.addEvent(juce::MidiMessage::controllerEvent(1, 70, 127), 10);
+    events.addEvent(juce::MidiMessage::controllerEvent(1, 79, 64), 20);
+    setup(p); render(p, 512, 512, events);
+    require(p.state.getRawParameterValue("wave")->load() == 4, "MIDI CC 70 must select the oscillator wave");
+    require(std::abs(p.state.getRawParameterValue("width")->load()
+                     - p.state.getParameter("width")->convertFrom0to1(64.0f / 127.0f)) < 0.01f,
+            "MIDI CC 79 must control pulse width");
+    set(p,"wave",1);
+
     {
         std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
         require(ed != nullptr, "Editor creation failed");
+        std::function<void(juce::Component*)> walk = [&](juce::Component* c)
+        {
+            if (auto* s = dynamic_cast<juce::Slider*>(c))
+            {
+                const auto t = s->getTextFromValue(s->getValue());
+                require(!t.contains("Hz Hz") && !t.contains("dB dB") && !t.contains("cents cents"),
+                        "Knob readout duplicates its unit suffix");
+            }
+            for (int i = 0; i < c->getNumChildComponents(); ++i)
+                walk(c->getChildComponent(i));
+        };
+        walk(ed.get());
     }
 
     setup(p);

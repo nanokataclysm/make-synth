@@ -26,6 +26,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MakeSynthProcessor::layout()
           juce::StringArray{"Pink","White"},0));
     add("space","Space",0,0.65f,0.15f);
     add("output","Output level",-48,0,-18);
+    // Triangle is index 1 and the default, so patches saved before the wave
+    // selector existed still reload as the original detuned triangle pair.
+    p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"wave",1},"Oscillator wave",
+          juce::StringArray{"Sine","Triangle","Saw","Square","Pulse"},1));
+    add("width","Pulse width",0.15f,0.85f,0.35f);
     return p;
 }
 
@@ -67,6 +72,8 @@ makesynth::Parameters MakeSynthProcessor::readParameters() const noexcept
     p.fmRatio=std::clamp(value(8,1.4142f),0.125f,8.0f);
     p.fmDepth=std::clamp(value(9),0.0f,5.0f);
     p.breath=std::clamp(value(10),0.0f,1.0f); p.pink=value(11)<0.5f;
+    p.wave=std::clamp(static_cast<int>(value(14,1)),0,4);
+    p.width=std::clamp(value(15,0.35f),0.15f,0.85f);
     return p;
 }
 
@@ -165,6 +172,8 @@ void MakeSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept
                     setParameterFromMidi(0, val < 43 ? 0.0f : (val < 86 ? 0.5f : 1.0f));
                     break;
                 case 83: setParameterFromMidi(11, val >= 64 ? 1.0f : 0.0f); break; // Noise color (pink/white)
+                case 70: setParameterFromMidi(14, v); break;               // Oscillator wave (Mode 0)
+                case 79: setParameterFromMidi(15, v); break;               // Pulse width (Mode 0)
                 default: break;
             }
         }
