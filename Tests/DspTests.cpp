@@ -1,6 +1,8 @@
 #include "SynthEngine.h"
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 void require(bool ok,const char* message)
@@ -8,14 +10,53 @@ void require(bool ok,const char* message)
     if (!ok) throw std::runtime_error(message);
 }
 
-int main()
+// Fixed scenario used as the bit-identity reference across the patching work.
+static std::vector<float> goldenRender()
+{
+    makesynth::SynthEngine engine;
+    makesynth::Parameters p;
+    p.mode = 0; p.drone = true; p.frequency = 220; p.detune = 7;
+    p.cutoff = 3000; p.resonance = 0.4f; p.motion = 0.3f; p.rate = 1.0f;
+    engine.setParameters(p);
+    engine.prepare(48000);
+    std::vector<float> out(8192);
+    for (auto& x : out) x = engine.process();
+    return out;
+}
+
+int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::string(argv[1]) == "--write-golden")
+        {
+            const auto samples = goldenRender();
+            std::ofstream file("Tests/golden-engine.f32", std::ios::binary);
+            require(file.good(), "Cannot open golden file for writing");
+            file.write(reinterpret_cast<const char*>(samples.data()),
+                       static_cast<std::streamsize>(samples.size() * sizeof(float)));
+            std::cout << "wrote " << samples.size() << " golden samples\n";
+            return 0;
+        }
+
         makesynth::SynthEngine engine;
         makesynth::Parameters p;
         engine.prepare(48000);
         for (int i=0;i<48000;++i) require(engine.process()==0,"Default must be silent");
+
+        {
+            std::ifstream file("Tests/golden-engine.f32", std::ios::binary);
+            require(file.good(), "Golden reference file is missing — run --write-golden");
+            std::vector<float> expected(8192);
+            file.read(reinterpret_cast<char*>(expected.data()),
+                      static_cast<std::streamsize>(expected.size() * sizeof(float)));
+            require(file.gcount() == static_cast<std::streamsize>(expected.size() * sizeof(float)),
+                    "Golden reference file is truncated");
+            const auto actual = goldenRender();
+            for (size_t i = 0; i < expected.size(); ++i)
+                require(actual[i] == expected[i], "Engine output drifted from the golden reference");
+            std::cout << "golden reference matches\n";
+        }
 
         for (double sr : {32000.0,48000.0,192000.0})
             for (int mode=0;mode<3;++mode)
