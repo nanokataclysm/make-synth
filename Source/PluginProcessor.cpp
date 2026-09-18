@@ -32,6 +32,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MakeSynthProcessor::layout()
           juce::StringArray{"Sine","Triangle","Saw","Square","Pulse"},1));
     add("width","Pulse width",0.15f,0.85f,0.35f);
     add("patchLevel","Patch level",0,1,0.5f);
+    add("cvCutoffAmount","CV cutoff amount",-1,1,0);
+    add("cvPitchAmount","CV pitch amount",-1,1,0);
+    add("cvFmAmount","CV FM amount",-1,1,0);
+    add("cvWidthAmount","CV width amount",-1,1,0);
     return p;
 }
 
@@ -82,6 +86,10 @@ makesynth::Parameters MakeSynthProcessor::readParameters() const noexcept
     p.wave=std::clamp(static_cast<int>(value(14,1)),0,4);
     p.width=std::clamp(value(15,0.35f),0.15f,0.85f);
     p.patchLevel=std::clamp(value(16,0.5f),0.0f,1.0f);
+    p.cvCutoffAmount=std::clamp(value(17),-1.0f,1.0f);
+    p.cvPitchAmount=std::clamp(value(18),-1.0f,1.0f);
+    p.cvFmAmount=std::clamp(value(19),-1.0f,1.0f);
+    p.cvWidthAmount=std::clamp(value(20),-1.0f,1.0f);
     return p;
 }
 
@@ -206,6 +214,10 @@ void MakeSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept
                 case 70: setParameterFromMidi(14, v); break;               // Oscillator wave (Mode 0)
                 case 79: setParameterFromMidi(15, v); break;               // Pulse width (Mode 0)
                 case 85: setParameterFromMidi(16, v); break;               // Patch level
+                case 86: setParameterFromMidi(17, v); break;               // CV cutoff amount
+                case 87: setParameterFromMidi(18, v); break;               // CV pitch amount
+                case 88: setParameterFromMidi(19, v); break;               // CV FM amount
+                case 89: setParameterFromMidi(20, v); break;               // CV width amount
                 default: break;
             }
         }

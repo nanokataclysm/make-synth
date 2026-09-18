@@ -376,6 +376,28 @@ void tests()
     }
 
     {
+        MakeSynthProcessor cc;
+        setup(cc);
+        juce::MidiBuffer events;
+        events.addEvent(juce::MidiMessage::controllerEvent(1, 86, 127), 10);
+        events.addEvent(juce::MidiMessage::controllerEvent(1, 87, 0), 20);
+        events.addEvent(juce::MidiMessage::controllerEvent(1, 88, 64), 30);
+        events.addEvent(juce::MidiMessage::controllerEvent(1, 89, 127), 40);
+        render(cc, 512, 512, events);
+        require(cc.state.getRawParameterValue("cvCutoffAmount")->load() > 0.99f,
+                "MIDI CC 86 must control cutoff CV amount");
+        require(cc.state.getRawParameterValue("cvPitchAmount")->load() < -0.99f,
+                "MIDI CC 87 must control pitch CV amount");
+        require(std::abs(cc.state.getRawParameterValue("cvFmAmount")->load()) < 0.02f,
+                "MIDI CC 88 must centre FM CV amount");
+        require(cc.state.getRawParameterValue("cvWidthAmount")->load() > 0.99f,
+                "MIDI CC 89 must control width CV amount");
+        // Existing mappings must not have drifted.
+        require(std::abs(cc.state.getRawParameterValue("patchLevel")->load() - 0.5f) < 0.01f,
+                "patchLevel drifted from its default");
+    }
+
+    {
         std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
         require(ed != nullptr, "Editor creation failed");
         std::function<void(juce::Component*)> walk = [&](juce::Component* c)

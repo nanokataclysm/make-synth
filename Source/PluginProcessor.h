@@ -35,10 +35,11 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout layout();
     // Index-addressed: readParameters() and the MIDI CC table below both use
     // these positions, so new entries are appended, never inserted.
-    static constexpr std::array<const char*,17> ids {
+    static constexpr std::array<const char*,21> ids {
         "mode","drone","frequency","cutoff","resonance","rate","motion",
         "detune","fmRatio","fmDepth","breath","noise","space","output",
-        "wave","width","patchLevel"};
+        "wave","width","patchLevel",
+        "cvCutoffAmount","cvPitchAmount","cvFmAmount","cvWidthAmount"};
     float value(size_t i, float fallback = 0) const noexcept;
     makesynth::Parameters readParameters() const noexcept;
     void handleMidi(const juce::MidiMessage&) noexcept;
@@ -50,8 +51,8 @@ private:
     std::array<float,16> bend {};
     uint64_t noteOrder = 0;
     void setParameterFromMidi(size_t i, float normalizedValue) noexcept;
-    std::array<std::atomic<float>*,17> values {};
-    std::array<juce::RangedAudioParameter*,17> params {};
+    std::array<std::atomic<float>*,21> values {};
+    std::array<juce::RangedAudioParameter*,21> params {};
     makesynth::SynthEngine engine;
     juce::dsp::Oversampling<float> oversampling;
     juce::Reverb reverb;
