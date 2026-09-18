@@ -58,6 +58,57 @@ int main(int argc, char** argv)
             std::cout << "golden reference matches\n";
         }
 
+        {
+            makesynth::SynthEngine e;
+            makesynth::Parameters p;
+            p.mode = 0; p.drone = true;
+            e.setParameters(p); e.prepare(48000);
+
+            // A non-zero patch signal must change the output.
+            double silentEnergy = 0, drivenEnergy = 0;
+            for (int i = 0; i < 4800; ++i) { const auto x = e.process(0.0f); silentEnergy += x * x; }
+            e.reset();
+            for (int i = 0; i < 4800; ++i)
+            {
+                const auto x = e.process(0.5f * std::sin(i * 0.05));
+                drivenEnergy += x * x;
+                require(std::isfinite(x), "Patch input produced a non-finite sample");
+            }
+            require(drivenEnergy != silentEnergy, "Patch input had no effect on the output");
+
+            // Taps must be finite and must differ from each other once the filter bites.
+            p.cutoff = 200; p.resonance = 0;
+            e.setParameters(p); e.prepare(48000);
+            double tapDifference = 0;
+            for (int i = 0; i < 4800; ++i)
+            {
+                e.process(0.5f * std::sin(i * 0.3));
+                require(std::isfinite(e.lastPreFilter()), "Pre-filter tap is non-finite");
+                require(std::isfinite(e.lastPostFilter()), "Post-filter tap is non-finite");
+                tapDifference += std::abs(e.lastPreFilter() - e.lastPostFilter());
+            }
+            require(tapDifference > 1.0, "Taps are identical; the filter is not in the tap path");
+
+            // Extremes must stay bounded through the tanh stage.
+            for (int i = 0; i < 4800; ++i)
+            {
+                const auto x = e.process(i % 2 ? 50.0f : -50.0f);
+                require(std::isfinite(x) && std::abs(x) < 2.0f, "Extreme patch input is unstable");
+            }
+            std::cout << "patch input checks passed\n";
+        }
+
+        {
+            makesynth::SynthEngine e;
+            makesynth::Parameters p;
+            p.mode = 0; p.drone = true;
+            e.setParameters(p); e.prepare(48000);
+            for (int i = 0; i < 1000; ++i) e.process(0.5f);
+            require(e.lastPreFilter() != 0 || e.lastPostFilter() != 0, "Taps never became non-zero");
+            e.reset();
+            require(e.lastPreFilter() == 0 && e.lastPostFilter() == 0, "reset() must clear the taps");
+        }
+
         for (double sr : {32000.0,48000.0,192000.0})
             for (int mode=0;mode<3;++mode)
             {
