@@ -45,6 +45,28 @@ juce::AudioBuffer<float> render(MakeSynthProcessor& p,int count,int block=257,ju
     }
     return result;
 }
+// Renders with the Patch In bus enabled, feeding a sine into it.
+juce::AudioBuffer<float> renderWithPatch(MakeSynthProcessor& p, int count, float amplitude,
+                                         double radiansPerSample, int block = 257)
+{
+    juce::AudioBuffer<float> result(2, count);
+    int phase = 0;
+    for (int start = 0; start < count; start += block)
+    {
+        const auto n = std::min(block, count - start);
+        juce::AudioBuffer<float> b(p.getTotalNumOutputChannels(), n);
+        b.clear();
+        // Patch In is input bus 0, which shares channels 0-1 with the main output.
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < n; ++i)
+                b.setSample(c, i, amplitude * static_cast<float>(std::sin((phase + i) * radiansPerSample)));
+        phase += n;
+        juce::MidiBuffer midi;
+        p.processBlock(b, midi);
+        for (int c = 0; c < 2; ++c) result.copyFrom(c, start, b, c, 0, n);
+    }
+    return result;
+}
 void setup(MakeSynthProcessor& p,double sr=48000,int block=512)
 {
     p.setRateAndBufferSizeDetails(sr,block);
@@ -89,6 +111,19 @@ void tests()
                 "Disabled main output must be rejected");
         require(!p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), Set::mono(), none)),
                 "Mono tap must be rejected");
+    }
+    {
+        MakeSynthProcessor patched;
+        auto layout = patched.getBusesLayout();
+        layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
+        require(patched.setBusesLayout(layout), "Could not enable the Patch In bus");
+        set(patched, "space", 0); set(patched, "output", 0); set(patched, "drone", 0);
+        // patchLevel is not a host parameter until Task 7; Parameters::patchLevel
+        // defaults to 0.5f and readParameters does not touch it yet.
+        setup(patched);
+        const auto level = rms(renderWithPatch(patched, 24000, 0.5f, 0.05));
+        require(level > 0.001, "Patched audio did not survive into the output");
+        std::cout << "patch input RMS " << level << '\n';
     }
     for (int mode=0;mode<3;++mode)
     {

@@ -58,6 +58,7 @@ private:
     juce::SmoothedValue<float,juce::ValueSmoothingTypes::Multiplicative> master;
     juce::SmoothedValue<float> wetMix;
     juce::AudioBuffer<float> dry;
+    juce::AudioBuffer<float> patchScratch;
     int maximumBlock = 512;
     std::atomic<bool> panic {false};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MakeSynthProcessor)
