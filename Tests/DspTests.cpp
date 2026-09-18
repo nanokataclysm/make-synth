@@ -318,6 +318,59 @@ int main(int argc, char** argv)
             require(std::abs(mean/96000)<0.002,"Pulse width must not leave a DC offset");
         }
 
+        {
+            // Each destination must move the output when its attenuverter is raised and
+            // stay inert when it is zero. Differenced against a silent-CV run, because
+            // the oscillator sounds either way and an absolute threshold would measure it.
+            auto energyWith = [](float amount, bool feedCv, int destination)
+            {
+                makesynth::SynthEngine engine;
+                makesynth::Parameters q;
+                q.mode = destination == 2 ? 2 : 0;
+                q.drone = true; q.cvConnected = true;
+                q.motion = 0; q.breath = 0;
+                if (destination == 1) q.cvPitchAmount = amount;
+                if (destination == 2) q.cvFmAmount = amount;
+                if (destination == 3) { q.wave = 4; q.cvWidthAmount = amount; }
+                engine.setParameters(q); engine.prepare(48000);
+                double total = 0;
+                for (int i = 0; i < 24000; ++i)
+                {
+                    makesynth::SampleInputs in;
+                    const float cv = feedCv ? 0.6f * std::sin(i * 0.02) : 0.0f;
+                    if (destination == 1) in.cvPitch = cv;
+                    if (destination == 2) in.cvFmDepth = cv;
+                    if (destination == 3) in.cvWidth = cv;
+                    const auto x = engine.process(in);
+                    total += x * x;
+                }
+                return total;
+            };
+
+            for (int destination = 1; destination <= 3; ++destination)
+            {
+                const auto live = energyWith(1.0f, true, destination);
+                const auto inert = energyWith(1.0f, false, destination);
+                require(std::abs(live - inert) / std::max(live, inert) > 0.01,
+                        "A CV destination did not respond to its channel");
+                require(energyWith(0.0f, true, destination) == energyWith(0.0f, false, destination),
+                        "A CV destination moved with its attenuverter at zero");
+            }
+
+            // Pitch CV must not push the oscillator past Nyquist at extreme input.
+            makesynth::SynthEngine hot;
+            makesynth::Parameters h;
+            h.mode = 0; h.drone = true; h.frequency = 1000; h.cvPitchAmount = 1.0f; h.cvConnected = true;
+            hot.setParameters(h); hot.prepare(48000);
+            for (int i = 0; i < 24000; ++i)
+            {
+                makesynth::SampleInputs in; in.cvPitch = 1.0f;
+                const auto x = hot.process(in);
+                require(std::isfinite(x) && std::abs(x) < 2.0f, "Extreme pitch CV is unstable");
+            }
+            std::cout << "CV destination checks passed\n";
+        }
+
         std::cout << "DSP checks passed\n";
     }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

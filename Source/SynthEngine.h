@@ -24,6 +24,10 @@ struct Parameters
     // with no note held.
     float patchLevel = 0.5f;
     bool patchConnected = false;
+    // Attenuverters: bipolar so a negative value inverts the incoming CV.
+    // All default to zero, so enabling the CV bus alone changes nothing.
+    float cvCutoffAmount = 0, cvPitchAmount = 0, cvFmAmount = 0, cvWidthAmount = 0;
+    bool cvConnected = false;
     bool pink = true;
 };
 
@@ -105,6 +109,10 @@ public:
         smooth(current.fmDepth, target.fmDepth); smooth(current.breath, target.breath);
         smooth(current.width, target.width);
         smooth(current.patchLevel, target.patchLevel);
+        smooth(current.cvCutoffAmount, target.cvCutoffAmount);
+        smooth(current.cvPitchAmount, target.cvPitchAmount);
+        smooth(current.cvFmAmount, target.cvFmAmount);
+        smooth(current.cvWidthAmount, target.cvWidthAmount);
         const float gate = noteActive ? velocity
                          : (target.drone || target.patchConnected) ? 1.0f
                          : 0.0f;
@@ -115,11 +123,15 @@ public:
 
         advance(lfoPhase, current.rate);
         const auto lfo = std::sin(lfoPhase);
-        const double base = std::clamp(static_cast<double>(current.frequency), 10.0, rate * 0.1);
+        // +/-2 octaves at full attenuverter. Inside the clamp so CV cannot
+        // push the oscillator past the internal Nyquist limit.
+        const double pitchMod = std::exp2(in.cvPitch * current.cvPitchAmount * 2.0f);
+        const double base = std::clamp(static_cast<double>(current.frequency) * pitchMod, 10.0, rate * 0.1);
         const double second = base * std::exp2(current.detune / 1200.0);
         advance(phase1, base); advance(phase2, second);
         const int shape = std::clamp(target.wave, 0, 4);
-        const double pulseWidth = std::clamp(static_cast<double>(current.width), 0.15, 0.85);
+        const double pulseWidth = std::clamp(static_cast<double>(current.width)
+                                             + in.cvWidth * current.cvWidthAmount * 0.35f, 0.15, 0.85);
         const float drone = 0.5f * waveGain[static_cast<size_t>(shape)]
                           * (oscillator(shape, phase1, base, pulseWidth)
                            + oscillator(shape, phase2, second, pulseWidth));
@@ -135,7 +147,8 @@ public:
         const auto modFrequency = std::clamp(base * current.fmRatio * std::exp2(current.motion * 0.04 * lfo), 1.0, rate * 0.12);
         // Restrict the modulation bandwidth near the internal Nyquist limit.
         const auto maxIndex = std::max(0.0, (rate * 0.4 - base) / modFrequency - 1.0);
-        const auto index = std::min(static_cast<double>(current.fmDepth), maxIndex);
+        const auto modulatedFmDepth = std::clamp(current.fmDepth + in.cvFmDepth * current.cvFmAmount * 5.0f, 0.0f, 5.0f);
+        const auto index = std::min(static_cast<double>(modulatedFmDepth), maxIndex);
         advance(modPhase, modFrequency);
         advance(carrierPhase, base + modFrequency * index * std::sin(modPhase));
         const float metallic = static_cast<float>(std::sin(carrierPhase));
