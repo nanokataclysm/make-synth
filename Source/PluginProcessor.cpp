@@ -214,7 +214,7 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
     // copied out before the buffer is cleared.
     const bool patchActive = getBus(true,0) != nullptr && getBus(true,0)->isEnabled();
     const int patchSamples = std::min(buffer.getNumSamples(), patchScratch.getNumSamples());
-    patchScratch.clear();
+    patchScratch.clear(0, 0, patchSamples);
     if (patchActive)
     {
         auto patchBus = getBusBuffer(buffer, true, 0);
@@ -252,6 +252,9 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
         }
         auto host=full.getSubsetChannelBlock(0,2).getSubBlock(static_cast<size_t>(start),static_cast<size_t>(count));
         auto high=oversampling.processSamplesUp(host);
+        const bool wantPre  = getBus(false,1) != nullptr && getBus(false,1)->isEnabled();
+        const bool wantPost = getBus(false,2) != nullptr && getBus(false,2)->isEnabled();
+        float preSum = 0, postSum = 0;
         for (size_t i=0;i<high.getNumSamples();++i)
         {
             if ((i&3u)==0)
@@ -259,6 +262,21 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
                 { if ((*next).numBytes<=3) handleMidi((*next).getMessage()); ++next; }
             const float x=engine.process(high.getChannelPointer(0)[i]);
             high.getChannelPointer(0)[i]=x; high.getChannelPointer(1)[i]=x;
+            preSum  += engine.lastPreFilter();
+            postSum += engine.lastPostFilter();
+            if ((i&3u)==3u)
+            {
+                // Box-average of the four oversampled values: a cheap, stateless
+                // decimation that suppresses the worst aliasing. A halfband
+                // decimator would be cleaner but costs two more filter chains.
+                // The channel guards matter: a host may enable one tap and not
+                // the other, so the buffer can be narrower than 6 channels.
+                const int host = start + static_cast<int>(i/4);
+                const int channels = buffer.getNumChannels();
+                if (wantPre  && channels > 3) for (int c=2;c<4;++c) buffer.setSample(c,host,preSum*0.25f);
+                if (wantPost && channels > 5) for (int c=4;c<6;++c) buffer.setSample(c,host,postSum*0.25f);
+                preSum = postSum = 0;
+            }
         }
         oversampling.processSamplesDown(host);
         for (int c=0;c<2;++c) dry.copyFrom(c,0,buffer,c,start,count);

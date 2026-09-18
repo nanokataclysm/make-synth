@@ -168,6 +168,43 @@ void tests()
         require(lateDiff > 0.01,
                 "Patch signal did not survive past prepareToPlay's block size within an oversized host buffer");
     }
+    {
+        MakeSynthProcessor tapped;
+        auto layout = tapped.getBusesLayout();
+        layout.outputBuses.getReference(1) = juce::AudioChannelSet::stereo();
+        layout.outputBuses.getReference(2) = juce::AudioChannelSet::stereo();
+        require(tapped.setBusesLayout(layout), "Could not enable the tap buses");
+        set(tapped, "drone", 1); set(tapped, "output", 0); set(tapped, "space", 0);
+        setup(tapped);
+
+        juce::AudioBuffer<float> b(tapped.getTotalNumOutputChannels(), 4096);
+        b.clear();
+        juce::MidiBuffer midi;
+        tapped.processBlock(b, midi);
+
+        double pre = 0, post = 0;
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const auto a = b.getSample(2, i), c = b.getSample(4, i);
+            require(std::isfinite(a) && std::isfinite(c), "Tap output is non-finite");
+            pre += a * a; post += c * c;
+        }
+        require(pre > 0.0001, "Pre-filter tap produced no audio");
+        require(post > 0.0001, "Post-filter tap produced no audio");
+        std::cout << "taps pre " << std::sqrt(pre / 4096) << " post " << std::sqrt(post / 4096) << '\n';
+
+        // With the tap buses off, nothing beyond the main pair may be written.
+        MakeSynthProcessor plain;
+        set(plain, "drone", 1); set(plain, "output", 0);
+        setup(plain);
+        require(plain.getTotalNumOutputChannels() == 2,
+                "Disabled taps must not add output channels");
+        juce::AudioBuffer<float> narrow(2, 4096);
+        narrow.clear();
+        juce::MidiBuffer none;
+        plain.processBlock(narrow, none);
+        require(rms(narrow) > 0.0001, "Main output went silent when taps were disabled");
+    }
     for (int mode=0;mode<3;++mode)
     {
         set(p,"mode",static_cast<float>(mode)); set(p,"drone",1); setup(p);
