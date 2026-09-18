@@ -254,6 +254,12 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
         auto high=oversampling.processSamplesUp(host);
         const bool wantPre  = getBus(false,1) != nullptr && getBus(false,1)->isEnabled();
         const bool wantPost = getBus(false,2) != nullptr && getBus(false,2)->isEnabled();
+        // A disabled bus contributes zero channels to the process-block buffer, so later
+        // buses pack down to fill the gap: Post-Filter's real offset depends on whether
+        // Pre-Filter is enabled, not on a fixed channel index. Derive both offsets instead
+        // of hardcoding them.
+        const int preChannel  = wantPre  ? getChannelIndexInProcessBlockBuffer(false,1,0) : -1;
+        const int postChannel = wantPost ? getChannelIndexInProcessBlockBuffer(false,2,0) : -1;
         float preSum = 0, postSum = 0;
         for (size_t i=0;i<high.getNumSamples();++i)
         {
@@ -269,12 +275,13 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
                 // Box-average of the four oversampled values: a cheap, stateless
                 // decimation that suppresses the worst aliasing. A halfband
                 // decimator would be cleaner but costs two more filter chains.
-                // The channel guards matter: a host may enable one tap and not
+                // The bounds checks matter: a host may enable one tap and not
                 // the other, so the buffer can be narrower than 6 channels.
-                const int host = start + static_cast<int>(i/4);
-                const int channels = buffer.getNumChannels();
-                if (wantPre  && channels > 3) for (int c=2;c<4;++c) buffer.setSample(c,host,preSum*0.25f);
-                if (wantPost && channels > 5) for (int c=4;c<6;++c) buffer.setSample(c,host,postSum*0.25f);
+                const int hostSample = start + static_cast<int>(i/4);
+                if (preChannel  >= 0 && preChannel  + 1 < buffer.getNumChannels())
+                    for (int c=0;c<2;++c) buffer.setSample(preChannel +c,hostSample,preSum *0.25f);
+                if (postChannel >= 0 && postChannel + 1 < buffer.getNumChannels())
+                    for (int c=0;c<2;++c) buffer.setSample(postChannel+c,hostSample,postSum*0.25f);
                 preSum = postSum = 0;
             }
         }
