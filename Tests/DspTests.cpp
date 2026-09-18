@@ -368,6 +368,31 @@ int main(int argc, char** argv)
                 const auto x = hot.process(in);
                 require(std::isfinite(x) && std::abs(x) < 2.0f, "Extreme pitch CV is unstable");
             }
+
+            // At 32kHz the ceiling is rate*0.1 = 3200Hz. 1000Hz at full pitch CV is
+            // 4000Hz and at 0.9 it is 3482Hz — both above the ceiling, so both clamp to
+            // the same base and the two runs must agree sample for sample. If the clamp
+            // were removed, they would differ immediately.
+            auto renderAtCv = [](float cv)
+            {
+                makesynth::SynthEngine engine;
+                makesynth::Parameters q;
+                q.mode = 0; q.drone = true; q.frequency = 1000; q.cvPitchAmount = 1.0f;
+                q.cvConnected = true; q.motion = 0; q.breath = 0;
+                engine.setParameters(q); engine.prepare(32000);
+                std::vector<float> out(8192);
+                for (auto& x : out)
+                {
+                    makesynth::SampleInputs in; in.cvPitch = cv;
+                    x = engine.process(in);
+                }
+                return out;
+            };
+            const auto clampedHigh = renderAtCv(1.0f);
+            const auto clampedLower = renderAtCv(0.9f);
+            for (size_t i = 0; i < clampedHigh.size(); ++i)
+                require(clampedHigh[i] == clampedLower[i], "Pitch CV is not clamped at the Nyquist limit");
+
             std::cout << "CV destination checks passed\n";
         }
 
