@@ -175,7 +175,18 @@ void tests()
         layout.outputBuses.getReference(2) = juce::AudioChannelSet::stereo();
         require(tapped.setBusesLayout(layout), "Could not enable the tap buses");
         set(tapped, "drone", 1); set(tapped, "output", 0); set(tapped, "space", 0);
+        // A high drone pitch well above a low, static cutoff (motion disabled so the
+        // cutoff does not sweep) so the post-filter tap's energy must visibly drop
+        // relative to the pre-filter tap's, pinning which tap is which rather than
+        // just confirming both are non-silent.
+        set(tapped, "frequency", 800); set(tapped, "cutoff", 40);
+        set(tapped, "resonance", 0); set(tapped, "motion", 0); set(tapped, "breath", 0);
         setup(tapped);
+
+        // Derived rather than hardcoded: a disabled bus contributes zero channels,
+        // so later buses pack down and Post-Filter's offset is not always 4.
+        const int preOffset = tapped.getChannelIndexInProcessBlockBuffer(false, 1, 0);
+        const int postOffset = tapped.getChannelIndexInProcessBlockBuffer(false, 2, 0);
 
         juce::AudioBuffer<float> b(tapped.getTotalNumOutputChannels(), 4096);
         b.clear();
@@ -185,12 +196,14 @@ void tests()
         double pre = 0, post = 0;
         for (int i = 0; i < b.getNumSamples(); ++i)
         {
-            const auto a = b.getSample(2, i), c = b.getSample(4, i);
+            const auto a = b.getSample(preOffset, i), c = b.getSample(postOffset, i);
             require(std::isfinite(a) && std::isfinite(c), "Tap output is non-finite");
             pre += a * a; post += c * c;
         }
         require(pre > 0.0001, "Pre-filter tap produced no audio");
         require(post > 0.0001, "Post-filter tap produced no audio");
+        require(post < pre * 0.5,
+                "Post-filter tap did not show the filter's attenuation (pre/post may be swapped)");
         std::cout << "taps pre " << std::sqrt(pre / 4096) << " post " << std::sqrt(post / 4096) << '\n';
 
         // With the tap buses off, nothing beyond the main pair may be written.
@@ -204,6 +217,38 @@ void tests()
         juce::MidiBuffer none;
         plain.processBlock(narrow, none);
         require(rms(narrow) > 0.0001, "Main output went silent when taps were disabled");
+    }
+    {
+        // Disabled buses pack down in the process-block buffer: enabling Post-Filter
+        // alone (Pre-Filter left disabled) moves its real offset to where Pre-Filter
+        // would otherwise sit. A hardcoded channel index for a single-tap host layout
+        // silently misses this and writes nowhere.
+        auto tapOnly = [](int busIndex) -> double
+        {
+            MakeSynthProcessor tp;
+            auto layout = tp.getBusesLayout();
+            layout.outputBuses.getReference(busIndex) = juce::AudioChannelSet::stereo();
+            require(tp.setBusesLayout(layout), "Could not enable a single tap bus");
+            set(tp, "drone", 1); set(tp, "output", 0); set(tp, "space", 0);
+            setup(tp);
+            require(tp.getTotalNumOutputChannels() == 4,
+                    "Enabling a single tap bus must add exactly two channels");
+            const int offset = tp.getChannelIndexInProcessBlockBuffer(false, busIndex, 0);
+            juce::AudioBuffer<float> buf(tp.getTotalNumOutputChannels(), 4096);
+            buf.clear();
+            juce::MidiBuffer midi;
+            tp.processBlock(buf, midi);
+            double energy = 0;
+            for (int i = 0; i < buf.getNumSamples(); ++i)
+            {
+                const auto x = buf.getSample(offset, i);
+                require(std::isfinite(x), "Single tap output is non-finite");
+                energy += x * x;
+            }
+            return energy;
+        };
+        require(tapOnly(1) > 0.0001, "Pre-Filter-only tap produced no audio");
+        require(tapOnly(2) > 0.0001, "Post-Filter-only tap produced no audio");
     }
     for (int mode=0;mode<3;++mode)
     {
