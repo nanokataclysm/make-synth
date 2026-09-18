@@ -57,6 +57,25 @@ disabled by default; enable them in your host's routing or pin matrix.
 
 Connecting Patch In holds the amplitude envelope open, so patched audio passes
 with no note held and DRONE off. **Patch Level** sets how much joins the source.
+A stereo Patch In is summed to mono (0.5/0.5) before it enters the engine.
+
+This has consequences worth knowing before you wire it up:
+
+- **Enabling Patch In makes the instance sound on its own.** The held-open
+  gate applies to the whole voice, not just the patched signal, so with Patch
+  In enabled, DRONE off, no notes held, and even Patch Level at 0, the
+  instance still emits its own drone continuously (around RMS 0.41).
+- **STOP does not silence a patched instance.** STOP resets the amplitude
+  envelope, but the held-open gate re-attacks it within about 8 ms whenever
+  Patch In is connected, so the STOP button's documented behaviour is
+  misleading while patching is active.
+- **Pre-Filter and Post-Filter are pre-envelope taps.** They carry full-level
+  audio continuously, including after STOP and with nothing playing. This is
+  deliberate — like tapping a VCO ahead of a VCA — but surprising if you
+  expect the taps to go quiet with the rest of the instance.
+
+None of the above has been verified against a real host; it follows from the
+engine and processor code.
 
 These buses are designed for hosts with flexible audio routing — Bitwig,
 REAPER and Ardour are the expected targets. Ableton Live and Logic restrict

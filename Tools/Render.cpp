@@ -30,6 +30,19 @@ double rms(const juce::AudioBuffer<float>& b,int start=0,int count=-1)
     }
     return count>0?std::sqrt(sum/count):0;
 }
+// Two deterministic renders that only differ in one fed signal: their per-sample
+// difference isolates that signal's own contribution from anything the two runs
+// share (e.g. an oscillator hum), which a plain RMS threshold cannot.
+double diffRms(const juce::AudioBuffer<float>& a,const juce::AudioBuffer<float>& b,int start,int count)
+{
+    double sum=0;
+    for (int i=start;i<start+count;++i)
+    {
+        const auto d=a.getSample(0,i)-b.getSample(0,i);
+        sum+=d*d;
+    }
+    return std::sqrt(sum/count);
+}
 juce::AudioBuffer<float> render(MakeSynthProcessor& p,int count,int block=257,juce::MidiBuffer events={})
 {
     juce::AudioBuffer<float> result(2,count);
@@ -113,17 +126,30 @@ void tests()
                 "Mono tap must be rejected");
     }
     {
-        MakeSynthProcessor patched;
-        auto layout = patched.getBusesLayout();
-        layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
-        require(patched.setBusesLayout(layout), "Could not enable the Patch In bus");
-        set(patched, "space", 0); set(patched, "output", 0); set(patched, "drone", 0);
-        // patchLevel is not a host parameter until Task 7; Parameters::patchLevel
-        // defaults to 0.5f and readParameters does not touch it yet.
-        setup(patched);
-        const auto level = rms(renderWithPatch(patched, 24000, 0.5f, 0.05));
-        require(level > 0.001, "Patched audio did not survive into the output");
-        std::cout << "patch input RMS " << level << '\n';
+        // Enabling Patch In sets patchConnected, which holds the envelope gate
+        // open on its own -- the local oscillator drones at audible RMS with
+        // zero patch signal fed in. A plain "is the output loud enough" check
+        // against that drone cannot fail even if the patch signal is destroyed
+        // before it is read (e.g. by reverting the capture-before-buffer.clear()
+        // fix), so this is differential: render twice with identical settings,
+        // once fed a signal and once fed silence, and require the per-sample
+        // difference to be substantial.
+        auto renderPatched = [](float amplitude)
+        {
+            MakeSynthProcessor patched;
+            auto layout = patched.getBusesLayout();
+            layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
+            require(patched.setBusesLayout(layout), "Could not enable the Patch In bus");
+            set(patched, "space", 0); set(patched, "output", 0); set(patched, "drone", 0);
+            set(patched, "patchLevel", 1.0f);
+            setup(patched);
+            return renderWithPatch(patched, 24000, amplitude, 0.05);
+        };
+        const auto fed = renderPatched(0.5f);
+        const auto baseline = renderPatched(0.0f);
+        const auto diff = diffRms(fed, baseline, 0, 24000);
+        std::cout << "patch input contribution RMS " << diff << '\n';
+        require(diff > 0.01, "Patched audio did not survive into the output");
     }
     {
         // A host may send a single processBlock call far larger than the block
@@ -148,19 +174,6 @@ void tests()
         };
         const auto fed = renderPatched(0.5f);
         const auto baseline = renderPatched(0.0f);
-        // Two deterministic engines that only differ in the fed patch signal:
-        // their per-sample difference isolates the patch's own contribution
-        // from the shared oscillator hum, which a plain RMS threshold cannot.
-        auto diffRms = [](const juce::AudioBuffer<float>& a, const juce::AudioBuffer<float>& b, int start, int count)
-        {
-            double sum = 0;
-            for (int i = start; i < start + count; ++i)
-            {
-                const auto d = a.getSample(0, i) - b.getSample(0, i);
-                sum += d * d;
-            }
-            return std::sqrt(sum / count);
-        };
         const auto earlyDiff = diffRms(fed, baseline, 0, 256);
         const auto lateDiff = diffRms(fed, baseline, 1500, 500);
         std::cout << "oversized-buffer patch contribution early " << earlyDiff << ", late " << lateDiff << '\n';
