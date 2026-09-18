@@ -27,6 +27,15 @@ struct Parameters
     bool pink = true;
 };
 
+// Per-sample inputs. Grows as later phases add sources; a struct keeps call
+// sites readable and makes a mis-ordered argument a compile error rather than
+// silently misrouted modulation.
+struct SampleInputs
+{
+    float patch = 0;
+    float cvCutoff = 0, cvPitch = 0, cvFmDepth = 0, cvWidth = 0;
+};
+
 class Filter
 {
 public:
@@ -85,7 +94,7 @@ public:
     // Read after each process() call. Valid until the next call.
     float lastPreFilter()  const noexcept { return preFilterTap; }
     float lastPostFilter() const noexcept { return postFilterTap; }
-    float process(float patchIn = 0.0f) noexcept
+    float process(const SampleInputs& in = {}) noexcept
     {
         auto smooth = [this](float& value, float to) { value += smoothing * (to - value); };
         const float wantedPitch = noteActive ? noteFrequency : (target.drone ? target.frequency : current.frequency);
@@ -143,11 +152,11 @@ public:
         // Patched audio joins each mode source, so it picks up whichever
         // filter the active mode uses. The weights sum to ~1, so its total
         // contribution stays at unity across mode changes.
-        patchIn *= current.patchLevel;
-        preFilterTap = weights[0] * drone + weights[1] * noise + weights[2] * metallic + patchIn;
-        const float mixed = weights[0] * filters[0].process(drone + patchIn)
-                          + weights[1] * filters[1].process(noise + patchIn, true) * swell
-                          + weights[2] * filters[2].process(metallic + patchIn);
+        const float patch = in.patch * current.patchLevel;
+        preFilterTap = weights[0] * drone + weights[1] * noise + weights[2] * metallic + patch;
+        const float mixed = weights[0] * filters[0].process(drone + patch)
+                          + weights[1] * filters[1].process(noise + patch, true) * swell
+                          + weights[2] * filters[2].process(metallic + patch);
         postFilterTap = mixed;
         const auto shaped = std::tanh(mixed * 0.85);
         dcOutput = shaped - dcInput + dcCoefficient * dcOutput;

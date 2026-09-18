@@ -269,7 +269,7 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
             if ((i&3u)==0)
                 while (next!=midi.cend() && (*next).samplePosition<=start+static_cast<int>(i/4))
                 { if ((*next).numBytes<=3) handleMidi((*next).getMessage()); ++next; }
-            const float x=engine.process(high.getChannelPointer(0)[i]);
+            const float x=engine.process({high.getChannelPointer(0)[i]});
             high.getChannelPointer(0)[i]=x; high.getChannelPointer(1)[i]=x;
             preSum  += engine.lastPreFilter();
             postSum += engine.lastPostFilter();
