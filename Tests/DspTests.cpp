@@ -101,6 +101,64 @@ int main(int argc, char** argv)
         {
             makesynth::SynthEngine e;
             makesynth::Parameters p;
+            p.mode = 0; p.drone = false; p.patchConnected = true; p.patchLevel = 1.0f;
+
+            // The gate opens for a connected patch bus, which also lets the oscillator
+            // sound. Every assertion below therefore measures the DIFFERENCE between an
+            // identical pair of runs -- one fed a signal, one fed silence -- so what is
+            // measured is the patch contribution and not the oscillator underneath it.
+            auto energyWith = [](float level, bool feedSignal, int mode)
+            {
+                makesynth::SynthEngine engine;
+                makesynth::Parameters q;
+                q.mode = mode; q.drone = false; q.patchConnected = true; q.patchLevel = level;
+                q.cutoff = 3000; q.resonance = 0; q.motion = 0; q.breath = 0;
+                engine.setParameters(q); engine.prepare(48000);
+                double total = 0;
+                for (int i = 0; i < 24000; ++i)
+                {
+                    const auto x = engine.process(feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f);
+                    total += x * x;
+                }
+                return total;
+            };
+
+            const auto silent = energyWith(1.0f, false, 0);
+            require(energyWith(1.0f, true, 0) > silent * 1.05,
+                    "Connected patch input must add energy with no note held");
+
+            // patchLevel must scale the contribution monotonically.
+            const auto full = energyWith(1.0f, true, 0);
+            const auto quarter = energyWith(0.25f, true, 0);
+            const auto muted = energyWith(0.0f, true, 0);
+            require(full > quarter && quarter > muted, "patchLevel does not scale the patched signal");
+
+            // At level zero the patch path must contribute exactly nothing, so the run is
+            // sample-for-sample the silent run.
+            require(muted == energyWith(0.0f, false, 0), "patchLevel of zero must mute patched audio");
+
+            // Disconnected patch input must not open the gate.
+            makesynth::Parameters q;
+            q.mode = 0; q.drone = false; q.patchConnected = false; q.patchLevel = 1.0f;
+            makesynth::SynthEngine quiet;
+            quiet.setParameters(q); quiet.prepare(48000);
+            double closed = 0;
+            for (int i = 0; i < 24000; ++i) closed += std::abs(quiet.process(0.4f * std::sin(i * 0.1)));
+            require(closed < 1.0e-4, "Disconnected patch input must stay gated");
+
+            // Each mode must colour the patched signal differently. Differencing against
+            // the silent run removes the oscillator, which already differs per mode.
+            const auto lowPass  = energyWith(1.0f, true, 0) - energyWith(1.0f, false, 0);
+            const auto bandPass = energyWith(1.0f, true, 1) - energyWith(1.0f, false, 1);
+            require(lowPass > 0 && bandPass > 0, "Patched audio vanished in a mode");
+            require(std::abs(lowPass - bandPass) / std::max(lowPass, bandPass) > 0.1,
+                    "Modes do not colour patched audio differently");
+            std::cout << "patch gate checks passed\n";
+        }
+
+        {
+            makesynth::SynthEngine e;
+            makesynth::Parameters p;
             p.mode = 0; p.drone = true;
             e.setParameters(p); e.prepare(48000);
             for (int i = 0; i < 1000; ++i) e.process(0.5f);
