@@ -396,6 +396,47 @@ int main(int argc, char** argv)
             std::cout << "CV destination checks passed\n";
         }
 
+        {
+            // Modulation depth achieved by CV at two rates. If CV were routed through
+            // the 25ms parameter smoother, the fast rate would be attenuated ~40x
+            // relative to the slow one. Unsmoothed, both retain their effect.
+            auto depthAtRate = [](double radiansPerSample, float amount)
+            {
+                makesynth::SynthEngine engine;
+                makesynth::Parameters q;
+                q.mode = 0; q.drone = true; q.cvConnected = true;
+                q.cutoff = 800; q.resonance = 0; q.motion = 0; q.breath = 0;
+                q.cvCutoffAmount = amount;
+                engine.setParameters(q); engine.prepare(48000);
+                for (int i = 0; i < 8000; ++i) { makesynth::SampleInputs in; engine.process(in); }
+                double total = 0;
+                for (int i = 0; i < 48000; ++i)
+                {
+                    makesynth::SampleInputs in;
+                    in.cvCutoff = static_cast<float>(std::sin(i * radiansPerSample));
+                    const auto x = engine.process(in);
+                    total += x * x;
+                }
+                return total;
+            };
+
+            const double slowRate = 2.0 * 3.14159265358979 * 2.0 / 48000.0;    // 2 Hz
+            const double fastRate = 2.0 * 3.14159265358979 * 100.0 / 48000.0;  // 100 Hz
+
+            const auto slowLive = depthAtRate(slowRate, 1.0f);
+            const auto slowFlat = depthAtRate(slowRate, 0.0f);
+            const auto fastLive = depthAtRate(fastRate, 1.0f);
+            const auto fastFlat = depthAtRate(fastRate, 0.0f);
+
+            const auto slowEffect = std::abs(slowLive - slowFlat) / slowFlat;
+            const auto fastEffect = std::abs(fastLive - fastFlat) / fastFlat;
+
+            std::cout << "cutoff CV effect slow " << slowEffect << " fast " << fastEffect << '\n';
+            require(slowEffect > 0.01, "Slow cutoff CV had no effect");
+            require(fastEffect > slowEffect * 0.25,
+                    "Fast cutoff CV was attenuated — CV is being smoothed");
+        }
+
         std::cout << "DSP checks passed\n";
     }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

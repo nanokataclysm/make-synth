@@ -153,13 +153,22 @@ public:
         advance(carrierPhase, base + modFrequency * index * std::sin(modPhase));
         const float metallic = static_cast<float>(std::sin(carrierPhase));
 
-        if ((coefficientCounter++ & 31u) == 0)
+        // Tuning calls std::tan, so coefficients normally refresh every 32
+        // samples. That is 6kHz at the internal rate — ample for the LFO sweep
+        // and far too slow for audio-rate CV, which would arrive stepped. Tune
+        // every sample only while cutoff CV can actually move the filter, so
+        // patches that never use it keep today's cost exactly.
+        const float cutoffMod = std::exp2(in.cvCutoff * current.cvCutoffAmount * 4.0f);
+        const auto modulatedCutoff = current.cutoff * cutoffMod;
+        const bool liveCutoffCv = target.cvConnected && current.cvCutoffAmount != 0.0f;
+        const bool dueForTune = (coefficientCounter++ & 31u) == 0;
+        if (liveCutoffCv || dueForTune)
         {
-            const auto sweep = current.cutoff * std::exp2(current.motion * 3.0 * lfo);
+            const auto sweep = modulatedCutoff * std::exp2(current.motion * 3.0 * lfo);
             const auto q = 0.707 + std::clamp(current.resonance, 0.0f, 1.0f) * 9.0;
             filters[0].tune(rate, sweep, q);
             filters[1].tune(rate, sweep, q);
-            filters[2].tune(rate, current.cutoff, q);
+            filters[2].tune(rate, modulatedCutoff, q);
         }
         const auto swell = static_cast<float>(1.0 - current.breath * 0.5 + current.breath * 0.5 * lfo);
         // Patched audio joins each mode source, so it picks up whichever
