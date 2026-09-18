@@ -151,7 +151,7 @@ void MakeSynthEditor::resized()
 {
     const int w=getWidth(),h=getHeight(),margin=28;
     mode.setBounds(w/3,29,w/3,40); drone.setBounds(w-220,29,105,40); stop.setBounds(w-105,29,77,40);
-    const int cell=(w-2*margin)/5,knobH=(h-315)/2;
+    const int cell=(w-2*margin)/5,knobH=patchVisible?(h-322)/3:(h-315)/2;
     int x=margin;
     for (auto* k : {&pitch,&cutoff,&resonance,&rate,&motion}) { k->setBounds(x,238,cell,knobH); x+=cell; }
     const int y=238+knobH+7;
@@ -191,7 +191,7 @@ void MakeSynthEditor::paint(juce::Graphics& g)
                               selectedMode==1?"One slow motion opens the colour and lets the noise breathe.":
                                               "Bring in FM depth, then move the ratio away from simple octaves.";
     g.drawText(caption,52,176,getWidth()-104,23,juce::Justification::centredLeft);
-    const int cell=(getWidth()-56)/5,y=238+(getHeight()-315)/2+7;
+    const int cell=(getWidth()-56)/5,y=238+(patchVisible?(getHeight()-322)/3:(getHeight()-315)/2)+7;
     if (selectedMode==1)
     {
         g.setColour(muted); g.setFont(juce::FontOptions(15.0f));
