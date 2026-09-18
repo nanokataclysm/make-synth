@@ -66,6 +66,7 @@ public:
         randomState = 0x8c31f249u; pinkCounter = 0; pinkRows.fill(0); pinkSum = 0;
         pinkMix = target.pink ? 1.0f : 0.0f;
         dcInput = dcOutput = 0;
+        preFilterTap = postFilterTap = 0;
         coefficientCounter = 0;
         for (auto& f : filters) f.reset();
     }
@@ -75,7 +76,10 @@ public:
         noteActive = active;
         if (active) { noteFrequency = frequency; velocity = noteVelocity; }
     }
-    float process() noexcept
+    // Read after each process() call. Valid until the next call.
+    float lastPreFilter()  const noexcept { return preFilterTap; }
+    float lastPostFilter() const noexcept { return postFilterTap; }
+    float process(float patchIn = 0.0f) noexcept
     {
         auto smooth = [this](float& value, float to) { value += smoothing * (to - value); };
         const float wantedPitch = noteActive ? noteFrequency : (target.drone ? target.frequency : current.frequency);
@@ -127,9 +131,14 @@ public:
             filters[2].tune(rate, current.cutoff, q);
         }
         const auto swell = static_cast<float>(1.0 - current.breath * 0.5 + current.breath * 0.5 * lfo);
-        const float mixed = weights[0] * filters[0].process(drone)
-                          + weights[1] * filters[1].process(noise, true) * swell
-                          + weights[2] * filters[2].process(metallic);
+        // Patched audio joins each mode source, so it picks up whichever
+        // filter the active mode uses. The weights sum to ~1, so its total
+        // contribution stays at unity across mode changes.
+        preFilterTap = weights[0] * drone + weights[1] * noise + weights[2] * metallic + patchIn;
+        const float mixed = weights[0] * filters[0].process(drone + patchIn)
+                          + weights[1] * filters[1].process(noise + patchIn, true) * swell
+                          + weights[2] * filters[2].process(metallic + patchIn);
+        postFilterTap = mixed;
         const auto shaped = std::tanh(mixed * 0.85);
         dcOutput = shaped - dcInput + dcCoefficient * dcOutput;
         dcInput = shaped;
@@ -192,6 +201,7 @@ private:
     double rate = 192000, phase1 = 0, phase2 = 0, carrierPhase = 0, modPhase = 0, lfoPhase = 0;
     double dcInput = 0, dcOutput = 0, dcCoefficient = 0.999;
     float smoothing = 0.001f, attack = 0.001f, release = 0.0001f, envelope = 0;
+    float preFilterTap = 0, postFilterTap = 0;
     float noteFrequency = 110, velocity = 1, pinkSum = 0, pinkMix = 1;
     bool noteActive = false;
     Parameters target, current;
