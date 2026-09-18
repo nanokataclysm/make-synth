@@ -39,8 +39,10 @@ MakeSynthProcessor::MakeSynthProcessor()
     : AudioProcessor(BusesProperties()
           .withOutput("Output",      juce::AudioChannelSet::stereo(), true)
           .withInput ("Patch In",    juce::AudioChannelSet::stereo(), false)
+          .withInput ("CV In",       juce::AudioChannelSet::quadraphonic(), false)
           .withOutput("Pre-Filter",  juce::AudioChannelSet::stereo(), false)
-          .withOutput("Post-Filter", juce::AudioChannelSet::stereo(), false)),
+          .withOutput("Post-Filter", juce::AudioChannelSet::stereo(), false)
+          .withOutput("CV Out",      juce::AudioChannelSet::stereo(), false)),
       state(*this,nullptr,"MakeSynthState",layout()),
       oversampling(2,2,juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR,true,true)
 {
@@ -97,6 +99,12 @@ bool MakeSynthProcessor::isBusesLayoutSupported(const BusesLayout& b) const
         if (!tap.isDisabled() && tap != juce::AudioChannelSet::stereo())
             return false;
     }
+    const auto cv = b.getChannelSet(true, 1);
+    if (!cv.isDisabled() && cv.size() != 4)
+        return false;
+    const auto cvOut = b.getChannelSet(false, 3);
+    if (!cvOut.isDisabled() && cvOut != juce::AudioChannelSet::stereo())
+        return false;
     return true;
 }
 

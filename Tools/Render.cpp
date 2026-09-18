@@ -92,8 +92,6 @@ void tests()
     require(rms(render(p,4800))==0,"New instrument should be silent");
     require(p.getLatencySamples()>0,"Oversampling latency must be reported");
     {
-        require(p.getBusCount(true) == 1, "Expected exactly one input bus");
-        require(p.getBusCount(false) == 3, "Expected three output buses");
         require(p.getBus(true, 0)->getName() == "Patch In", "Input bus 0 must be Patch In");
         require(p.getBus(false, 1)->getName() == "Pre-Filter", "Output bus 1 must be Pre-Filter");
         require(p.getBus(false, 2)->getName() == "Post-Filter", "Output bus 2 must be Post-Filter");
@@ -102,11 +100,16 @@ void tests()
         require(!p.getBus(false, 2)->isEnabledByDefault(), "Post-Filter must default to disabled");
 
         using Set = juce::AudioChannelSet;
+        // Phase 2 appended a CV In / CV Out bus (checked in the block below), so every
+        // layout here must carry a disabled slot for each to match the processor's
+        // current bus count -- checkBusesLayoutSupported rejects a layout outright if
+        // its input/output bus counts don't match, regardless of isBusesLayoutSupported.
         auto layoutOf = [](Set in, Set out0, Set out1, Set out2)
         {
             juce::AudioProcessor::BusesLayout l;
-            l.inputBuses.add(in);
+            l.inputBuses.add(in); l.inputBuses.add(Set::disabled());
             l.outputBuses.add(out0); l.outputBuses.add(out1); l.outputBuses.add(out2);
+            l.outputBuses.add(Set::disabled());
             return l;
         };
         const auto none = Set::disabled();
@@ -124,6 +127,37 @@ void tests()
                 "Disabled main output must be rejected");
         require(!p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), Set::mono(), none)),
                 "Mono tap must be rejected");
+    }
+    {
+        require(p.getBusCount(true) == 2, "Expected two input buses");
+        require(p.getBusCount(false) == 4, "Expected four output buses");
+        require(p.getBus(true, 1)->getName() == "CV In", "Input bus 1 must be CV In");
+        require(p.getBus(false, 3)->getName() == "CV Out", "Output bus 3 must be CV Out");
+        require(!p.getBus(true, 1)->isEnabledByDefault(), "CV In must default to disabled");
+        require(!p.getBus(false, 3)->isEnabledByDefault(), "CV Out must default to disabled");
+
+        using Set = juce::AudioChannelSet;
+        auto layoutOf = [](Set patch, Set cv, Set out0, Set out1, Set out2, Set cvOut)
+        {
+            juce::AudioProcessor::BusesLayout l;
+            l.inputBuses.add(patch); l.inputBuses.add(cv);
+            l.outputBuses.add(out0); l.outputBuses.add(out1);
+            l.outputBuses.add(out2); l.outputBuses.add(cvOut);
+            return l;
+        };
+        const auto none = Set::disabled();
+        const auto quad = Set::quadraphonic();
+        require(quad.size() == 4, "quadraphonic must be a 4-channel set");
+        require(p.checkBusesLayoutSupported(layoutOf(none, none, Set::stereo(), none, none, none)),
+                "Everything optional disabled must be supported");
+        require(p.checkBusesLayoutSupported(layoutOf(none, quad, Set::stereo(), none, none, none)),
+                "4-channel CV In must be supported");
+        require(p.checkBusesLayoutSupported(layoutOf(none, none, Set::stereo(), none, none, Set::stereo())),
+                "Stereo CV Out must be supported");
+        require(!p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), Set::stereo(), none, none, none)),
+                "Stereo CV In must be rejected");
+        require(!p.checkBusesLayoutSupported(layoutOf(none, none, Set::stereo(), none, none, Set::mono())),
+                "Mono CV Out must be rejected");
     }
     {
         // Enabling Patch In sets patchConnected, which holds the envelope gate
