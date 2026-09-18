@@ -109,7 +109,11 @@ void MakeSynthProcessor::prepareToPlay(double sr,int block)
     rp.roomSize=0.78f; rp.damping=0.55f; rp.width=1.0f; rp.wetLevel=1.0f; rp.dryLevel=0.0f; rp.freezeMode=0;
     reverb.setParameters(rp);
     dry.setSize(2,maximumBlock,false,false,true);
-    patchScratch.setSize(1,maximumBlock,false,false,true);
+    // Sized to the block-size clamp's ceiling (see maximumBlock's clamp above),
+    // not to maximumBlock itself: the sub-block loop in processBlock tolerates
+    // host buffers larger than maximumBlock, and patchScratch must survive
+    // those too or patch audio silently truncates partway through the buffer.
+    patchScratch.setSize(1,32768,false,false,true);
     master.reset(sr,0.03); master.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(std::clamp(value(13,-18),-48.0f,0.0f)));
     wetMix.reset(sr,0.04); wetMix.setCurrentAndTargetValue(std::clamp(value(12),0.0f,0.65f));
     clearNotes(); outputPeak.store(0);

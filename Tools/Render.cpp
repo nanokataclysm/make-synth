@@ -125,6 +125,49 @@ void tests()
         require(level > 0.001, "Patched audio did not survive into the output");
         std::cout << "patch input RMS " << level << '\n';
     }
+    {
+        // A host may send a single processBlock call far larger than the block
+        // size declared at prepareToPlay; the sub-block loop inside
+        // processBlock exists to tolerate that. patchScratch must be sized to
+        // survive it too, not just the declared maximumBlock.
+        //
+        // An enabled Patch In bus also holds the engine's envelope open on its
+        // own (patchConnected), so the oscillator hums even when no patch
+        // signal is actually fed in. Non-zero output past the old capacity is
+        // therefore not proof the patch signal survived; compare against a
+        // silent-patch baseline at the same offsets to isolate its contribution.
+        auto renderPatched = [](float amplitude)
+        {
+            MakeSynthProcessor patched;
+            auto layout = patched.getBusesLayout();
+            layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
+            require(patched.setBusesLayout(layout), "Could not enable the Patch In bus");
+            set(patched, "space", 0); set(patched, "output", 0); set(patched, "drone", 0);
+            setup(patched, 48000, 256);
+            return renderWithPatch(patched, 4000, amplitude, 0.05, 2000);
+        };
+        const auto fed = renderPatched(0.5f);
+        const auto baseline = renderPatched(0.0f);
+        // Two deterministic engines that only differ in the fed patch signal:
+        // their per-sample difference isolates the patch's own contribution
+        // from the shared oscillator hum, which a plain RMS threshold cannot.
+        auto diffRms = [](const juce::AudioBuffer<float>& a, const juce::AudioBuffer<float>& b, int start, int count)
+        {
+            double sum = 0;
+            for (int i = start; i < start + count; ++i)
+            {
+                const auto d = a.getSample(0, i) - b.getSample(0, i);
+                sum += d * d;
+            }
+            return std::sqrt(sum / count);
+        };
+        const auto earlyDiff = diffRms(fed, baseline, 0, 256);
+        const auto lateDiff = diffRms(fed, baseline, 1500, 500);
+        std::cout << "oversized-buffer patch contribution early " << earlyDiff << ", late " << lateDiff << '\n';
+        require(earlyDiff > 0.01, "Patch signal missing from the start of an oversized host buffer");
+        require(lateDiff > 0.01,
+                "Patch signal did not survive past prepareToPlay's block size within an oversized host buffer");
+    }
     for (int mode=0;mode<3;++mode)
     {
         set(p,"mode",static_cast<float>(mode)); set(p,"drone",1); setup(p);
