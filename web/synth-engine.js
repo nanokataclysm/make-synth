@@ -1,6 +1,9 @@
 /**
  * Make Synth - Web Audio DSP Engine
- * Exact mirror of SynthEngine.h (zero external dependencies)
+ * Shares the SynthEngine.h signal path (oscillators, filter, envelope, DC block).
+ * Runs at the AudioContext rate with no 4x oversampling. Output is -48…0 dB
+ * plus the plugin's 0.85 tanh limiter. Reverb is a lightweight stereo stand-in
+ * for juce::Reverb, not a sample-accurate copy.
  */
 
 class MakeSynthFilter {
@@ -118,6 +121,9 @@ class AllpassFilter {
     reset() { this.buffer.fill(0); this.idx = 0; }
 }
 
+// Roughly equal loudness per shape, referenced to the triangle.
+const MAKESYNTH_WAVE_GAIN = [0.82, 1.0, 1.0, 0.58, 0.58];
+
 class MakeSynthCore {
     constructor(sampleRate = 48000) {
         this.rate = Math.max(8000, sampleRate);
@@ -135,9 +141,12 @@ class MakeSynthCore {
             fmRatio: 1.4142,
             fmDepth: 0.8,
             breath: 0.45,
+            // 0 sine, 1 triangle, 2 saw, 3 square, 4 pulse.
+            wave: 1,
+            width: 0.35,
             pink: true,
-            space: 0.2,
-            output: 0.7
+            space: 0.15,
+            output: -18
         };
 
         this.current = Object.assign({}, this.params);
@@ -217,6 +226,31 @@ class MakeSynthCore {
         return phase;
     }
 
+    // See polyBlep in SynthEngine.h: one-sample edge correction for the
+    // discontinuous shapes. Sine and triangle need none.
+    polyBlep(t, dt) {
+        if (dt <= 0) return 0;
+        if (t < dt) { t /= dt; return t + t - t * t - 1.0; }
+        if (t > 1.0 - dt) { t = (t - 1.0) / dt; return t * t + t + t + 1.0; }
+        return 0;
+    }
+
+    oscillator(shape, phase, hz, width) {
+        if (shape === 1) return this.triangle(phase, hz);
+        if (shape === 0) return Math.sin(phase);
+        const dt = Math.min(0.45, Math.max(0, hz / this.rate));
+        let t = phase / (2 * Math.PI);
+        t -= Math.floor(t);
+        if (shape === 2) return 2.0 * t - 1.0 - this.polyBlep(t, dt);
+        const w = (shape === 3) ? 0.5 : width;
+        let value = (t < w ? 1.0 : -1.0) - (2.0 * w - 1.0);
+        value += this.polyBlep(t, dt);
+        let fall = t - w;
+        fall -= Math.floor(fall);
+        value -= this.polyBlep(fall, dt);
+        return value;
+    }
+
     triangle(phase, hz) {
         let result = 0;
         for (let n = 1; n <= 13 && (n * hz < this.rate * 0.44); n += 2) {
@@ -227,10 +261,12 @@ class MakeSynthCore {
     }
 
     random() {
-        this.randomState ^= (this.randomState << 13) >>> 0;
-        this.randomState ^= (this.randomState >>> 17) >>> 0;
-        this.randomState ^= (this.randomState << 5) >>> 0;
-        return (this.randomState / 2147483648.0) - 1.0;
+        let s = this.randomState >>> 0;
+        s ^= (s << 13) >>> 0;
+        s ^= s >>> 17;
+        s ^= (s << 5) >>> 0;
+        this.randomState = s >>> 0;
+        return this.randomState / 2147483648.0 - 1.0;
     }
 
     trailingZeroes(n) {
@@ -255,6 +291,7 @@ class MakeSynthCore {
         this.current.fmRatio = smooth(this.current.fmRatio, this.params.fmRatio);
         this.current.fmDepth = smooth(this.current.fmDepth, this.params.fmDepth);
         this.current.breath = smooth(this.current.breath, this.params.breath);
+        this.current.width = smooth(this.current.width, this.params.width);
         this.current.output = smooth(this.current.output, this.params.output);
         this.current.space = smooth(this.current.space, this.params.space);
 
@@ -274,7 +311,11 @@ class MakeSynthCore {
 
         this.phase1 = this.advance(this.phase1, base);
         this.phase2 = this.advance(this.phase2, second);
-        const drone = 0.5 * (this.triangle(this.phase1, base) + this.triangle(this.phase2, second));
+        const shape = Math.min(4, Math.max(0, Math.round(this.params.wave)));
+        const pulseWidth = Math.min(0.85, Math.max(0.15, this.current.width));
+        const drone = 0.5 * MAKESYNTH_WAVE_GAIN[shape]
+            * (this.oscillator(shape, this.phase1, base, pulseWidth)
+             + this.oscillator(shape, this.phase2, second, pulseWidth));
 
         const white = this.random();
         this.pinkCounter = (this.pinkCounter + 1) >>> 0;
@@ -299,7 +340,8 @@ class MakeSynthCore {
             this.filters[0].tune(this.rate, sweep, q);
             this.filters[1].tune(this.rate, sweep, q);
             this.filters[2].tune(this.rate, this.current.cutoff, q);
-            this.reverb.setParameters(0.4 + this.current.space * 0.5, 0.4, this.current.space);
+            const space = Math.min(0.65, Math.max(0, this.current.space));
+            this.reverb.setParameters(0.4 + space * 0.5, 0.4, space);
         }
 
         const swell = 1.0 - this.current.breath * 0.5 + this.current.breath * 0.5 * lfo;
@@ -311,9 +353,18 @@ class MakeSynthCore {
         this.dcOutput = shaped - this.dcInput + this.dcCoefficient * this.dcOutput;
         this.dcInput = shaped;
 
-        const synthSample = this.dcOutput * this.envelope * this.current.output;
-        return this.reverb.process(synthSample);
+        const [left, right] = this.reverb.process(this.dcOutput * this.envelope);
+        const db = Math.min(0, Math.max(-48, this.current.output));
+        const gain = Math.pow(10, db / 20);
+        return [limitSample(left * gain), limitSample(right * gain)];
     }
+}
+
+function limitSample(x) {
+    if (!Number.isFinite(x)) return 0;
+    const a = Math.abs(x);
+    if (a <= 0.85) return x;
+    return Math.sign(x) * (0.85 + 0.13 * Math.tanh((a - 0.85) / 0.13));
 }
 
 if (typeof window !== 'undefined') {

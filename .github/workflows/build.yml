@@ -167,17 +167,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Test Web DSP Engine
-        run: |
-          node -e '
-            const fs = require("fs");
-            eval(fs.readFileSync("./web/synth-engine.js", "utf8"));
-            const core = new globalThis.MakeSynthCore(48000);
-            core.params.drone = true;
-            for (let i = 0; i < 4800; ++i) {
-              const [l, r] = core.processSample();
-              if (!isFinite(l) || !isFinite(r)) process.exit(1);
-            }
-          '
+        run: node Tests/web-engine-tests.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: MakeSynth-web

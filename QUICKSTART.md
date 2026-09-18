@@ -49,9 +49,9 @@ Rescan plugins in your DAW (FL Studio, Ableton Live, Cubase, Studio One, REAPER,
 
 Make Synth runs directly inside modern web browsers with zero installation required:
 
-- **Desktop & Laptops**: Open `web/index.html` in Chrome, Firefox, Safari, or Edge.
-- **iPhone / iPad (iOS)**: Open in Mobile Safari. Full touch-screen knob gestures and an on-screen keyboard let you play notes or drone immediately.
-- **Android**: Open in Chrome. Touch gestures and USB/Bluetooth Web MIDI controllers are fully supported.
+- **Desktop & Laptops**: Open `web/index.html` in Chrome, Firefox, Safari, or Edge. Hardware MIDI needs Web MIDI (Chrome/Edge; Firefox desktop). Safari on macOS has no Web MIDI.
+- **iPhone / iPad (iOS)**: Open in Mobile Safari. Touch knobs and the on-screen keyboard work. **Web MIDI is not available on iOS** (Safari, Chrome, and Edge all use WebKit).
+- **Android**: Open in Chrome. Touch gestures work. USB/Bluetooth Web MIDI works in Chrome for Android, not in Firefox for Android.
 - **Local Testing**:
   ```sh
   cd /home/nanokat/dev/make-synth/web
@@ -65,6 +65,7 @@ Make Synth runs directly inside modern web browsers with zero installation requi
 
 - The plugin starts silent. Click **DRONE** for continuous sound, or play MIDI notes / keys.
 - Select modes: **Detuned Drone**, **Breathing Noise**, or **Metallic Drone**.
+- In **Detuned Drone**, pick the oscillator **Wave**: Sine, Triangle, Saw, Square, or Pulse. **Pulse Width** is active only on the Pulse wave.
 - **Hardware MIDI Mapping**:
   - **CC 1 (Mod Wheel) / CC 11 (Expression)**: Primary expressive motion / breath / FM depth.
   - **CC 74**: Filter cutoff / brightness.
@@ -72,6 +73,8 @@ Make Synth runs directly inside modern web browsers with zero installation requi
   - **CC 76 / 14**: Modulation rate.
   - **CC 7**: Master volume output.
   - **CC 91**: Reverb space.
+  - **CC 70**: Oscillator wave (Sine / Triangle / Saw / Square / Pulse).
+  - **CC 79**: Pulse width.
   - **CC 82**: Mode switch (Detuned / Breathing / Metallic).
   - **CC 65 / 81**: Toggle drone latch.
   - **CC 64**: Sustain pedal latch.
