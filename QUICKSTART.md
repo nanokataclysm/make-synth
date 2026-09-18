@@ -66,6 +66,9 @@ Make Synth runs directly inside modern web browsers with zero installation requi
 - The plugin starts silent. Click **DRONE** for continuous sound, or play MIDI notes / keys.
 - Select modes: **Detuned Drone**, **Breathing Noise**, or **Metallic Drone**.
 - In **Detuned Drone**, pick the oscillator **Wave**: Sine, Triangle, Saw, Square, or Pulse. **Pulse Width** is active only on the Pulse wave.
+- To patch two instances together, enable the **Patch In** bus on the receiving
+  instance and route the first instance's output to it. A **PATCH LEVEL** knob
+  appears once the bus is connected.
 - **Hardware MIDI Mapping**:
   - **CC 1 (Mod Wheel) / CC 11 (Expression)**: Primary expressive motion / breath / FM depth.
   - **CC 74**: Filter cutoff / brightness.
@@ -78,3 +81,4 @@ Make Synth runs directly inside modern web browsers with zero installation requi
   - **CC 82**: Mode switch (Detuned / Breathing / Metallic).
   - **CC 65 / 81**: Toggle drone latch.
   - **CC 64**: Sustain pedal latch.
+  - **CC 85**: Patch level.

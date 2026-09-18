@@ -42,6 +42,26 @@ All modes share resonance, modulation rate/depth, stereo reverb (**Space**), and
 | **CC 83** | Noise color toggle (Pink / White) |
 | **CC 70** | Oscillator wave (Mode 0: Sine / Triangle / Saw / Square / Pulse) |
 | **CC 79** | Pulse width (Mode 0, Pulse wave) |
+| **CC 85** | Patch level |
+
+## Patching Instances Together
+
+Make Synth exposes three optional buses beyond its main output. All are
+disabled by default; enable them in your host's routing or pin matrix.
+
+| Bus | Direction | Purpose |
+| --- | --- | --- |
+| **Patch In** | Input (mono or stereo) | Audio from another instance, summed into the oscillator before the filter. It takes on the active mode's filter character, drive and reverb. |
+| **Pre-Filter** | Output (stereo) | The summed source before filtering. |
+| **Post-Filter** | Output (stereo) | The filter output before the drive stage. |
+
+Connecting Patch In holds the amplitude envelope open, so patched audio passes
+with no note held and DRONE off. **Patch Level** sets how much joins the source.
+
+These buses are designed for hosts with flexible audio routing — Bitwig,
+REAPER and Ardour are the expected targets. Ableton Live and Logic restrict
+audio routing into instrument plugins; a dedicated effect build is planned
+to cover them.
 
 ---
 
