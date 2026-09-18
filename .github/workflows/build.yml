@@ -43,6 +43,7 @@ jobs:
       - name: Package
         run: python3 Tools/package.py --platform linux-x86_64 --output dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name != 'pull_request'
         with:
           name: MakeSynth-linux-x86_64
           path: dist/*
@@ -71,6 +72,7 @@ jobs:
       - name: Package
         run: python Tools/package.py --platform windows-x86_64 --output dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name != 'pull_request'
         with:
           name: MakeSynth-windows-x86_64
           path: dist/*
@@ -116,12 +118,14 @@ jobs:
           cp build/MakeSynthDspTests ci-tests/
           cp build/MakeSynthRender_artefacts/Release/MakeSynthRender ci-tests/
           tar -czf mac-test-tools.tar.gz -C ci-tests .
+      # Not gated: macos-intel downloads this to test the same binaries natively,
+      # so it has to exist on pull requests too. Kept short-lived there instead.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: MakeSynth-macos-universal
           path: dist/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 30 }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mac-test-tools
@@ -171,6 +175,7 @@ jobs:
       - name: Test Web DSP Engine
         run: node Tests/web-engine-tests.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name != 'pull_request'
         with:
           name: MakeSynth-web
           path: web/*
