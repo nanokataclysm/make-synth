@@ -35,7 +35,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MakeSynthProcessor::layout()
 }
 
 MakeSynthProcessor::MakeSynthProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Output",juce::AudioChannelSet::stereo(),true)),
+    : AudioProcessor(BusesProperties()
+          .withOutput("Output",      juce::AudioChannelSet::stereo(), true)
+          .withInput ("Patch In",    juce::AudioChannelSet::stereo(), false)
+          .withOutput("Pre-Filter",  juce::AudioChannelSet::stereo(), false)
+          .withOutput("Post-Filter", juce::AudioChannelSet::stereo(), false)),
       state(*this,nullptr,"MakeSynthState",layout()),
       oversampling(2,2,juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR,true,true)
 {
@@ -79,7 +83,19 @@ makesynth::Parameters MakeSynthProcessor::readParameters() const noexcept
 
 bool MakeSynthProcessor::isBusesLayoutSupported(const BusesLayout& b) const
 {
-    return b.getMainInputChannelSet().isDisabled() && b.getMainOutputChannelSet()==juce::AudioChannelSet::stereo();
+    if (b.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+    const auto patch = b.getChannelSet(true, 0);
+    if (!patch.isDisabled() && patch != juce::AudioChannelSet::mono()
+                            && patch != juce::AudioChannelSet::stereo())
+        return false;
+    for (int bus = 1; bus <= 2; ++bus)
+    {
+        const auto tap = b.getChannelSet(false, bus);
+        if (!tap.isDisabled() && tap != juce::AudioChannelSet::stereo())
+            return false;
+    }
+    return true;
 }
 
 void MakeSynthProcessor::prepareToPlay(double sr,int block)

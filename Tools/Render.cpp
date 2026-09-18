@@ -56,6 +56,40 @@ void tests()
     set(p,"space",0); setup(p);
     require(rms(render(p,4800))==0,"New instrument should be silent");
     require(p.getLatencySamples()>0,"Oversampling latency must be reported");
+    {
+        require(p.getBusCount(true) == 1, "Expected exactly one input bus");
+        require(p.getBusCount(false) == 3, "Expected three output buses");
+        require(p.getBus(true, 0)->getName() == "Patch In", "Input bus 0 must be Patch In");
+        require(p.getBus(false, 1)->getName() == "Pre-Filter", "Output bus 1 must be Pre-Filter");
+        require(p.getBus(false, 2)->getName() == "Post-Filter", "Output bus 2 must be Post-Filter");
+        require(!p.getBus(true, 0)->isEnabledByDefault(), "Patch In must default to disabled");
+        require(!p.getBus(false, 1)->isEnabledByDefault(), "Pre-Filter must default to disabled");
+        require(!p.getBus(false, 2)->isEnabledByDefault(), "Post-Filter must default to disabled");
+
+        using Set = juce::AudioChannelSet;
+        auto layoutOf = [](Set in, Set out0, Set out1, Set out2)
+        {
+            juce::AudioProcessor::BusesLayout l;
+            l.inputBuses.add(in);
+            l.outputBuses.add(out0); l.outputBuses.add(out1); l.outputBuses.add(out2);
+            return l;
+        };
+        const auto none = Set::disabled();
+        require(p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), none, none)),
+                "Stereo out with everything else off must be supported");
+        require(p.checkBusesLayoutSupported(layoutOf(Set::stereo(), Set::stereo(), none, none)),
+                "Stereo patch input must be supported");
+        require(p.checkBusesLayoutSupported(layoutOf(Set::mono(), Set::stereo(), none, none)),
+                "Mono patch input must be supported");
+        require(p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), Set::stereo(), Set::stereo())),
+                "Both taps enabled must be supported");
+        require(!p.checkBusesLayoutSupported(layoutOf(none, Set::mono(), none, none)),
+                "Mono main output must be rejected");
+        require(!p.checkBusesLayoutSupported(layoutOf(none, none, none, none)),
+                "Disabled main output must be rejected");
+        require(!p.checkBusesLayoutSupported(layoutOf(none, Set::stereo(), Set::mono(), none)),
+                "Mono tap must be rejected");
+    }
     for (int mode=0;mode<3;++mode)
     {
         set(p,"mode",static_cast<float>(mode)); set(p,"drone",1); setup(p);
