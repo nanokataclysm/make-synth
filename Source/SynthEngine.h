@@ -18,6 +18,12 @@ struct Parameters
     // that sessions saved before the wave selector existed reload unchanged.
     int wave = 1;
     float width = 0.35f;
+    // How much patched audio joins the source, and whether a Patch In bus is
+    // connected at all. patchConnected comes from bus state, not signal
+    // detection, and holds the envelope gate open so patched audio passes
+    // with no note held.
+    float patchLevel = 0.5f;
+    bool patchConnected = false;
     bool pink = true;
 };
 
@@ -89,7 +95,10 @@ public:
         smooth(current.detune, target.detune); smooth(current.fmRatio, target.fmRatio);
         smooth(current.fmDepth, target.fmDepth); smooth(current.breath, target.breath);
         smooth(current.width, target.width);
-        const float gate = noteActive ? velocity : (target.drone ? 1.0f : 0.0f);
+        smooth(current.patchLevel, target.patchLevel);
+        const float gate = noteActive ? velocity
+                         : (target.drone || target.patchConnected) ? 1.0f
+                         : 0.0f;
         envelope += (gate > envelope ? attack : release) * (gate - envelope);
         if (gate == 0 && envelope < 1.0e-7f) envelope = 0;
         for (size_t i = 0; i < 3; ++i)
@@ -134,6 +143,7 @@ public:
         // Patched audio joins each mode source, so it picks up whichever
         // filter the active mode uses. The weights sum to ~1, so its total
         // contribution stays at unity across mode changes.
+        patchIn *= current.patchLevel;
         preFilterTap = weights[0] * drone + weights[1] * noise + weights[2] * metallic + patchIn;
         const float mixed = weights[0] * filters[0].process(drone + patchIn)
                           + weights[1] * filters[1].process(noise + patchIn, true) * swell
