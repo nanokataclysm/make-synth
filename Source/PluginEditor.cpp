@@ -92,11 +92,12 @@ MakeSynthEditor::MakeSynthEditor(MakeSynthProcessor& p)
       fmDepth(p.state,"fmDepth","FM DEPTH","","Add sidebands and metallic complexity."),
       breath(p.state,"breath","BREATHING","","Loudness movement. Zero is steady; one fades towards silence."),
       width(p.state,"width","PULSE WIDTH","","Duty cycle of the Pulse wave. 0.50 is a square; the extremes are thin and nasal."),
+      patchLevel(p.state,"patchLevel","PATCH LEVEL","","How much patched-in audio joins the oscillator before the filter."),
       space(p.state,"space","SPACE","","Blend a stereo reverb into the sound."),
       output(p.state,"output","OUTPUT"," dB","Master output level after the reverb.")
 {
     setLookAndFeel(&look);
-    for (auto* k : {&pitch,&cutoff,&resonance,&rate,&motion,&detune,&fmRatio,&fmDepth,&breath,&width,&space,&output}) addAndMakeVisible(k);
+    for (auto* k : {&pitch,&cutoff,&resonance,&rate,&motion,&detune,&fmRatio,&fmDepth,&breath,&width,&patchLevel,&space,&output}) addAndMakeVisible(k);
     mode.addItemList({"01  Detuned Drone","02  Breathing Noise","03  Metallic Drone"},1);
     noise.addItemList({"Pink noise","White noise"},1);
     wave.addItemList({"Sine","Triangle","Saw","Square","Pulse"},1);
@@ -115,7 +116,7 @@ MakeSynthEditor::MakeSynthEditor(MakeSynthProcessor& p)
         parameter->beginChangeGesture(); parameter->setValueNotifyingHost(0); parameter->endChangeGesture();
         processor.requestPanic();
     };
-    setResizable(true,true); setResizeLimits(900,620,1440,992); setSize(1000,690);
+    setResizable(true,true); setResizeLimits(900,620,1440,1130); setSize(1000,690);
     updateMode(); startTimerHz(30);
 }
 MakeSynthEditor::~MakeSynthEditor() { stopTimer(); setLookAndFeel(nullptr); }
@@ -124,7 +125,12 @@ void MakeSynthEditor::updateMode()
 {
     const auto m=static_cast<int>(processor.state.getRawParameterValue("mode")->load());
     const auto w=static_cast<int>(processor.state.getRawParameterValue("wave")->load());
-    if (m==selectedMode && w==selectedWave) return;
+    const auto* patchBus=processor.getBus(true,0);
+    const bool patched=patchBus!=nullptr && patchBus->isEnabled();
+    if (m==selectedMode && w==selectedWave && patched==patchVisible) return;
+    patchVisible=patched;
+    patchLevel.setVisible(patched);
+    setSize(getWidth(), patched ? 820 : 690);
     selectedMode=m; selectedWave=w;
     look.accent=m==0?juce::Colour(0xff63d9cb):m==1?juce::Colour(0xff87bfe9):juce::Colour(0xffc4a3ff);
     look.setColour(juce::TextButton::buttonOnColourId,look.accent);
@@ -155,6 +161,8 @@ void MakeSynthEditor::resized()
     wave.setBounds(margin+cell+15,y+64,cell-30,36);
     width.setBounds(margin+2*cell,y,cell,knobH);
     space.setBounds(margin+3*cell,y,cell,knobH); output.setBounds(margin+4*cell,y,cell,knobH);
+    const int patchRow=y+knobH+7;
+    patchLevel.setBounds(margin,patchRow,cell,knobH);
 }
 
 void MakeSynthEditor::paint(juce::Graphics& g)
@@ -166,9 +174,10 @@ void MakeSynthEditor::paint(juce::Graphics& g)
     g.setColour(panel); g.fillRoundedRectangle(r,10);
     static const juce::StringArray waveNames{"TWO SINES","TWO TRIANGLES","TWO SAWS","TWO SQUARES","TWO PULSES"};
     const auto oscillators=waveNames[juce::jlimit(0,4,selectedWave)];
-    const juce::StringArray routes=selectedMode==0?juce::StringArray{oscillators,"LOW-PASS","HELD VOICE","SPACE"}:
+    juce::StringArray routes=selectedMode==0?juce::StringArray{oscillators,"LOW-PASS","HELD VOICE","SPACE"}:
                                   selectedMode==1?juce::StringArray{"NOISE","BAND-PASS","SLOW SWELLS","SPACE"}:
                                                   juce::StringArray{"FM PAIR","LOW-PASS","HELD VOICE","SPACE"};
+    if (patchVisible) { routes.remove(3); routes.insert(0,"PATCH IN"); }
     const int cw=(getWidth()-104)/4;
     for (int i=0;i<4;++i)
     {
