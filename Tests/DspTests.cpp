@@ -81,7 +81,7 @@ int main(int argc, char** argv)
             e.reset();
             for (int i = 0; i < 4800; ++i)
             {
-                const auto x = e.process({0.5f * std::sin(i * 0.05)});
+                const auto x = e.process({static_cast<float>(0.5 * std::sin(i * 0.05))});
                 drivenEnergy += x * x;
                 require(std::isfinite(x), "Patch input produced a non-finite sample");
             }
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
             double tapDifference = 0;
             for (int i = 0; i < 4800; ++i)
             {
-                e.process({0.5f * std::sin(i * 0.3)});
+                e.process({static_cast<float>(0.5 * std::sin(i * 0.3))});
                 require(std::isfinite(e.lastPreFilter()), "Pre-filter tap is non-finite");
                 require(std::isfinite(e.lastPostFilter()), "Post-filter tap is non-finite");
                 tapDifference += std::abs(e.lastPreFilter() - e.lastPostFilter());
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
                 double total = 0;
                 for (int i = 0; i < 24000; ++i)
                 {
-                    const auto x = engine.process({feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f});
+                    const auto x = engine.process({static_cast<float>(feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f)});
                     total += x * x;
                 }
                 return total;
@@ -163,7 +163,7 @@ int main(int argc, char** argv)
                 double total = 0;
                 for (int i = 0; i < 24000; ++i)
                 {
-                    engine.process({feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f});
+                    engine.process({static_cast<float>(feedSignal ? 0.4f * std::sin(i * 0.1) : 0.0f)});
                     total += engine.lastPreFilter() * engine.lastPreFilter();
                 }
                 return total;
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
             makesynth::SynthEngine quiet;
             quiet.setParameters(q); quiet.prepare(48000);
             double closed = 0;
-            for (int i = 0; i < 24000; ++i) closed += std::abs(quiet.process({0.4f * std::sin(i * 0.1)}));
+            for (int i = 0; i < 24000; ++i) closed += std::abs(quiet.process({static_cast<float>(0.4f * std::sin(i * 0.1))}));
             require(closed < 1.0e-4, "Disconnected patch input must stay gated");
 
             // Each mode must colour the patched signal differently. Differencing against
