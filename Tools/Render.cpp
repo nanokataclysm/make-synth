@@ -319,6 +319,16 @@ void tests()
     set(p,"wave",1);
 
     {
+        MakeSynthProcessor cc;
+        setup(cc);
+        juce::MidiBuffer events;
+        events.addEvent(juce::MidiMessage::controllerEvent(1, 85, 100), 10);
+        render(cc, 512, 512, events);
+        require(std::abs(cc.state.getRawParameterValue("patchLevel")->load() - (100.0f/127.0f)) < 0.01f,
+                "MIDI CC 85 must control patch level");
+    }
+
+    {
         std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
         require(ed != nullptr, "Editor creation failed");
         std::function<void(juce::Component*)> walk = [&](juce::Component* c)

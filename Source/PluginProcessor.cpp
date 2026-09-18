@@ -31,6 +31,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MakeSynthProcessor::layout()
     p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"wave",1},"Oscillator wave",
           juce::StringArray{"Sine","Triangle","Saw","Square","Pulse"},1));
     add("width","Pulse width",0.15f,0.85f,0.35f);
+    add("patchLevel","Patch level",0,1,0.5f);
     return p;
 }
 
@@ -78,6 +79,7 @@ makesynth::Parameters MakeSynthProcessor::readParameters() const noexcept
     p.breath=std::clamp(value(10),0.0f,1.0f); p.pink=value(11)<0.5f;
     p.wave=std::clamp(static_cast<int>(value(14,1)),0,4);
     p.width=std::clamp(value(15,0.35f),0.15f,0.85f);
+    p.patchLevel=std::clamp(value(16,0.5f),0.0f,1.0f);
     return p;
 }
 
@@ -195,6 +197,7 @@ void MakeSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept
                 case 83: setParameterFromMidi(11, val >= 64 ? 1.0f : 0.0f); break; // Noise color (pink/white)
                 case 70: setParameterFromMidi(14, v); break;               // Oscillator wave (Mode 0)
                 case 79: setParameterFromMidi(15, v); break;               // Pulse width (Mode 0)
+                case 85: setParameterFromMidi(16, v); break;               // Patch level
                 default: break;
             }
         }
