@@ -34,8 +34,9 @@ private:
     juce::TextButton drone {"DRONE"},stop {"STOP"};
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment,noiseAttachment,waveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> droneAttachment;
-    Knob pitch,cutoff,resonance,rate,motion,detune,fmRatio,fmDepth,breath,width,space,output;
+    Knob pitch,cutoff,resonance,rate,motion,detune,fmRatio,fmDepth,breath,width,patchLevel,space,output;
     int selectedMode=-1,selectedWave=-1;
+    bool patchVisible=false;
     float meter=0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MakeSynthEditor)
 };
