@@ -162,8 +162,20 @@ is **not** summed to mono — each channel is a separate destination — so the
 scratch buffer is 4 channels wide, sized in `prepareToPlay` to the same 32768
 ceiling as `patchScratch`.
 
-CV In is fed through the existing oversampler alongside patch audio, so CV
-arrives at the engine's internal rate without a second filter chain.
+**Correction to an earlier draft of this section.** It claimed CV would be fed
+through the existing oversampler alongside patch audio. That is infeasible: the
+oversampler is constructed as `oversampling(2,2,...)` — two channels, exactly
+enough for the stereo audio path — and four CV channels do not fit. Widening it
+would mean four more polyphase filter chains running at 4x, which is a large
+cost for signals that do not need it.
+
+Instead, CV is read at host rate with a zero-order hold: for each oversampled
+sample, the engine receives the CV value from the nearest host sample. The
+incoming CV is already band-limited to the host Nyquist, so the imaging a ZOH
+introduces sits above anything the filter or oscillator responds to musically,
+and the destinations it drives — a filter cutoff, a pitch, a depth — are
+smooth functions of it. This costs one integer division per sample and no
+filter state at all.
 
 ### CV outputs
 
