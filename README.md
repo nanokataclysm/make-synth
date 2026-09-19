@@ -4,12 +4,22 @@ Three drone and noise synthesizer patches in a cross-platform instrument availab
 
 ![Detuned Drone interface](docs/mode-1.png)
 
+## Development status
+
+The `modular-patching-phase-2` branch contains work in progress on CV modulation
+for the native plugins. CV input routing, modulation destinations, host parameters
+and MIDI CC mappings are implemented. The CV output bus is declared but does not
+yet emit signals, and the dedicated editor controls are still pending. This
+branch is not a completed Phase 2 release; the design and implementation checklist
+are in the [Phase 2 plan](docs/superpowers/plans/2026-09-18-modular-patching-phase-2.md).
+That checklist records the proposed work; the status here reflects the current code.
+
 ## Play
 
 1. Install the matching bundle or format as described in [QUICKSTART.md](QUICKSTART.md).
 2. Insert **Make Synth** on a stereo instrument/MIDI track in your DAW, or open `web/index.html` in your browser.
 3. Press **DRONE** for continuous sound, or play MIDI notes.
-4. Turn the knobs or use your hardware MIDI controller. **STOP** clears the held voice, MIDI notes, and reverb tail.
+4. Turn the knobs or use your hardware MIDI controller. **STOP** clears the held voice, MIDI notes, and reverb tail; see the [patching limitations](#patching-instances-together) when Patch In is enabled.
 
 | Mode | Sound | Main controls |
 | --- | --- | --- |
@@ -43,11 +53,16 @@ All modes share resonance, modulation rate/depth, stereo reverb (**Space**), and
 | **CC 70** | Oscillator wave (Mode 0: Sine / Triangle / Saw / Square / Pulse) |
 | **CC 79** | Pulse width (Mode 0, Pulse wave) |
 | **CC 85** | Patch level |
+| **CC 86** | CV cutoff amount (Phase 2) |
+| **CC 87** | CV pitch amount (Phase 2) |
+| **CC 88** | CV FM depth amount (Phase 2) |
+| **CC 89** | CV pulse width amount (Phase 2) |
 
 ## Patching Instances Together
 
-Make Synth exposes three optional buses beyond its main output. All are
-disabled by default; enable them in your host's routing or pin matrix.
+The native plugins expose the following audio patching buses beyond their main
+output. All are disabled by default; enable them in your host's routing or pin
+matrix. The Phase 2 CV buses are described separately below.
 
 | Bus | Direction | Purpose |
 | --- | --- | --- |
@@ -55,7 +70,7 @@ disabled by default; enable them in your host's routing or pin matrix.
 | **Pre-Filter** | Output (stereo) | The summed source before filtering. |
 | **Post-Filter** | Output (stereo) | The filter output before the drive stage. |
 
-Connecting Patch In holds the amplitude envelope open, so patched audio passes
+Enabling Patch In holds the amplitude envelope open, so patched audio passes
 with no note held and DRONE off. **Patch Level** sets how much joins the source.
 A stereo Patch In is summed to mono (0.5/0.5) before it enters the engine.
 
@@ -64,11 +79,9 @@ This has consequences worth knowing before you wire it up:
 - **Enabling Patch In makes the instance sound on its own.** The held-open
   gate applies to the whole voice, not just the patched signal, so with Patch
   In enabled, DRONE off, no notes held, and even Patch Level at 0, the
-  instance still emits its own drone continuously (around RMS 0.41).
+  instance still emits its own drone continuously.
 - **STOP does not silence a patched instance.** STOP resets the amplitude
-  envelope, but the held-open gate re-attacks it within about 8 ms whenever
-  Patch In is connected, so the STOP button's documented behaviour is
-  misleading while patching is active.
+  envelope, but the held-open gate re-attacks it whenever Patch In is enabled.
 - **Pre-Filter and Post-Filter are pre-envelope taps.** They carry full-level
   audio continuously, including after STOP and with nothing playing. This is
   deliberate — like tapping a VCO ahead of a VCA — but surprising if you
@@ -81,6 +94,30 @@ These buses are designed for hosts with flexible audio routing — Bitwig,
 REAPER and Ardour are the expected targets. Ableton Live and Logic restrict
 audio routing into instrument plugins; a dedicated effect build is planned
 to cover them.
+
+### CV modulation (Phase 2, in development)
+
+Enable the four-channel **CV In** bus and use the host's parameter controls or
+MIDI CCs 86–89 to set a destination's amount. The amounts range from −1 to +1,
+default to zero, and can invert the incoming signal. Enabling CV In alone does
+not open the voice gate; play a note or enable DRONE to hear modulation.
+
+| CV In channel | Destination | Amount parameter / MIDI CC | Effect at full amount with a ±1 signal |
+| --- | --- | --- | --- |
+| 1 | Filter cutoff | `cvCutoffAmount` / 86 | Up to ±4 octaves around the knob setting, within the filter's limits |
+| 2 | Pitch | `cvPitchAmount` / 87 | Up to ±2 octaves around the held note or drone pitch, within the engine's limits |
+| 3 | FM depth | `cvFmAmount` / 88 | Adds up to ±5, clamped to 0–5; audible in Metallic Drone |
+| 4 | Pulse width | `cvWidthAmount` / 89 | Adds up to ±0.35, clamped to 0.15–0.85; audible with the Pulse waveform in Detuned Drone |
+
+The four incoming channels are captured separately before the shared audio
+buffer is cleared, then held at their host-sample values during 4× processing.
+Cutoff coefficients update every internal sample while cutoff CV is active.
+These native plugin buses are not implemented in the Web Audio player.
+
+The optional stereo **CV Out** bus is reserved for LFO (left) and envelope
+(right). The engine exposes those values, but the processor does not yet write
+them to the bus: **CV Out currently remains silent**. CV knobs in the custom
+editor, host routing validation, and a completed Phase 2 release remain pending.
 
 ---
 
@@ -151,9 +188,14 @@ node Tests/web-engine-tests.cjs
 
 ## Validation & Quality Assurance
 
-`ctest` runs the C++ DSP and processor binaries. Those checks cover default silence, pitched-mode frequency, envelope release, MIDI note timing, sustain-pedal last-note hold, MIDI CC 1/71/74, parameter state round-trip, sample-rate changes, FM DC, and extreme-parameter stability. The instrument is **monophonic** (last-note priority); there is no polyphonic voice test and no named mode-crossfade assertion. If `node` is on `PATH`, `ctest` also runs `Tests/web-engine-tests.cjs` (RNG range, default metallic headroom, limiter ceiling, dB gain, pink vs white).
+`ctest` runs the C++ DSP and processor binaries. Those checks cover default silence, pitched-mode frequency, envelope release, MIDI note timing, sustain-pedal last-note hold, MIDI CC 1/71/74, parameter state round-trip, sample-rate changes, FM DC, and extreme-parameter stability. Phase 2 adds engine CV response and pitch-clamp tests, LFO/envelope accessor checks, accepted bus layouts, CC 86–89 mapping, and processor CV input routing. The instrument is **monophonic** (last-note priority); there is no polyphonic voice test and no named mode-crossfade assertion. If `node` is on `PATH`, `ctest` also runs `Tests/web-engine-tests.cjs` (RNG range, default metallic headroom, limiter ceiling, dB gain, pink vs white).
 
 Plugin CI validates **VST3** with `pluginval` at strictness level 5 (Linux, Windows, macOS arm64 and x86_64). CLAP and AU are built and packaged; they are not pluginval'd. `validation/summary.json` is a historical local note from commits `d482760` / `b086642` and is **not** evidence for `eaaf65f` or later.
+
+The workflow runs on pushes to `main`, pull requests targeting `main`, or a
+manual dispatch. Pushing this development branch alone does not run that
+workflow. Passing local tests does not establish current cross-platform builds,
+pluginval acceptance, real-host CV routing, or release package validation.
 
 ```sh
 build/MakeSynthRender_artefacts/Release/MakeSynthRender --render renders

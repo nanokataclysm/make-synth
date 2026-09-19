@@ -132,6 +132,7 @@ void MakeSynthProcessor::prepareToPlay(double sr,int block)
     // host buffers larger than maximumBlock, and patchScratch must survive
     // those too or patch audio silently truncates partway through the buffer.
     patchScratch.setSize(1,32768,false,false,true);
+    cvScratch.setSize(4,32768,false,false,true);
     master.reset(sr,0.03); master.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(std::clamp(value(13,-18),-48.0f,0.0f)));
     wetMix.reset(sr,0.04); wetMix.setCurrentAndTargetValue(std::clamp(value(12),0.0f,0.65f));
     clearNotes(); outputPeak.store(0);
@@ -245,9 +246,22 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
         for (int c = 0; c < channels; ++c)
             patchScratch.addFrom(0, 0, patchBus, c, 0, patchSamples, 1.0f / static_cast<float>(channels));
     }
+    const bool cvActive = getBus(true,1) != nullptr && getBus(true,1)->isEnabled();
+    cvScratch.clear(0, 0, patchSamples);
+    cvScratch.clear(1, 0, patchSamples);
+    cvScratch.clear(2, 0, patchSamples);
+    cvScratch.clear(3, 0, patchSamples);
+    if (cvActive)
+    {
+        auto cvBus = getBusBuffer(buffer, true, 1);
+        const int channels = std::min(4, cvBus.getNumChannels());
+        for (int c = 0; c < channels; ++c)
+            cvScratch.copyFrom(c, 0, cvBus, c, 0, patchSamples);
+    }
     buffer.clear();
     auto parameters = readParameters();
     parameters.patchConnected = patchActive;
+    parameters.cvConnected = cvActive;
     engine.setParameters(parameters);
     if (panic.exchange(false)) { clearNotes(); engine.reset(); reverb.reset(); oversampling.reset(); }
     master.setTargetValue(juce::Decibels::decibelsToGain(std::clamp(value(13,-18),-48.0f,0.0f)));
@@ -289,7 +303,17 @@ void MakeSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::Mid
             if ((i&3u)==0)
                 while (next!=midi.cend() && (*next).samplePosition<=start+static_cast<int>(i/4))
                 { if ((*next).numBytes<=3) handleMidi((*next).getMessage()); ++next; }
-            const float x=engine.process({high.getChannelPointer(0)[i]});
+            const int cvSample = std::min(start + static_cast<int>(i/4), patchSamples - 1);
+            makesynth::SampleInputs inputs;
+            inputs.patch = high.getChannelPointer(0)[i];
+            if (cvActive && cvSample >= 0)
+            {
+                inputs.cvCutoff  = cvScratch.getSample(0, cvSample);
+                inputs.cvPitch   = cvScratch.getSample(1, cvSample);
+                inputs.cvFmDepth = cvScratch.getSample(2, cvSample);
+                inputs.cvWidth   = cvScratch.getSample(3, cvSample);
+            }
+            const float x=engine.process(inputs);
             high.getChannelPointer(0)[i]=x; high.getChannelPointer(1)[i]=x;
             preSum  += engine.lastPreFilter();
             postSum += engine.lastPostFilter();

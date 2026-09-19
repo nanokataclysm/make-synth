@@ -403,6 +403,44 @@ void tests()
     }
 
     {
+        // Each CV channel must reach its own destination and no other. This is
+        // the test that catches a channel-order mistake, which would otherwise
+        // be silent and deeply confusing.
+        auto renderWithCv = [](int channel, float amount)
+        {
+            MakeSynthProcessor cp;
+            auto layout = cp.getBusesLayout();
+            layout.inputBuses.getReference(1) = juce::AudioChannelSet::quadraphonic();
+            require(cp.setBusesLayout(layout), "Could not enable the CV In bus");
+            set(cp, "drone", 1); set(cp, "space", 0); set(cp, "output", 0);
+            set(cp, "mode", channel == 2 ? 2.0f : 0.0f);
+            if (channel == 3) set(cp, "wave", 4); // Width affects the Pulse waveform only.
+            const char* ids[4] = {"cvCutoffAmount","cvPitchAmount","cvFmAmount","cvWidthAmount"};
+            set(cp, ids[channel], amount);
+            setup(cp);
+            const int base = cp.getChannelIndexInProcessBlockBuffer(true, 1, 0);
+            juce::AudioBuffer<float> b(std::max(cp.getTotalNumInputChannels(),
+                                               cp.getTotalNumOutputChannels()), 4096);
+            juce::AudioBuffer<float> result(2, 4096);
+            b.clear();
+            for (int i = 0; i < 4096; ++i)
+                b.setSample(base + channel, i, 0.6f * static_cast<float>(std::sin(i * 0.02)));
+            juce::MidiBuffer midi;
+            cp.processBlock(b, midi);
+            for (int c = 0; c < 2; ++c) result.copyFrom(c, 0, b, c, 0, 4096);
+            return result;
+        };
+
+        for (int channel = 0; channel < 4; ++channel)
+        {
+            const auto live = renderWithCv(channel, 1.0f);
+            const auto inert = renderWithCv(channel, 0.0f);
+            require(diffRms(live, inert, 0, 4096) > 0.0005,
+                    "A CV channel did not reach its destination");
+        }
+    }
+
+    {
         std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
         require(ed != nullptr, "Editor creation failed");
         std::function<void(juce::Component*)> walk = [&](juce::Component* c)
