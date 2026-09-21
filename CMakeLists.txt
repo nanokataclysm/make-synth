@@ -26,7 +26,8 @@ if(MAKE_SYNTH_ENABLE_CLAP)
     include(FetchContent)
     FetchContent_Declare(clap-juce-extensions
         GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
-        GIT_TAG main
+        # Keep the validated wrapper and its submodule revisions reproducible.
+        GIT_TAG 55525c9858d4b25687be7759a5e0f70eccef218e
         GIT_SUBMODULES_RECURSE TRUE)
     FetchContent_MakeAvailable(clap-juce-extensions)
 endif()

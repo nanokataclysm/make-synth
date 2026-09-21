@@ -143,6 +143,12 @@ The repository's **Build VST3, AU, CLAP, and Web** GitHub Actions workflow produ
 
 ### Source Builds
 
+Native builds require CMake 3.24+ and C++17. JUCE is pinned to the 9.0.2
+release with an archive checksum. The CLAP wrapper is pinned to
+[`55525c9`](https://github.com/free-audio/clap-juce-extensions/commit/55525c9858d4b25687be7759a5e0f70eccef218e),
+including its recorded CLAP and helper submodules, so configuring does not
+silently select a newer wrapper from `main`.
+
 #### Linux
 ```sh
 sudo apt install build-essential cmake pkg-config \
