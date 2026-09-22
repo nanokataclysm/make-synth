@@ -161,3 +161,11 @@ build/MakeSynthRender_artefacts/Release/MakeSynthRender --snapshot docs
 ```
 
 The plugin audio path uses 4x oversampling, smoothed controls and mode transitions, DC removal, and a bounded output. Synthesis and MIDI handling allocate zero memory on the audio thread.
+
+---
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0** (AGPLv3) to comply with JUCE open-source licensing; see [LICENSE](LICENSE).
+
+Third-party software dependencies and their licenses are documented in [THIRD_PARTY.md](THIRD_PARTY.md) and [Licenses/](Licenses/).

@@ -54,7 +54,7 @@ Make Synth runs directly inside modern web browsers with zero installation requi
 - **Android**: Open in Chrome. Touch gestures work. USB/Bluetooth Web MIDI works in Chrome for Android, not in Firefox for Android.
 - **Local Testing**:
   ```sh
-  cd /home/nanokat/dev/make-synth/web
+  cd web
   python3 -m http.server 8000
   ```
   Then navigate to `http://localhost:8000` on any device on your local network.
